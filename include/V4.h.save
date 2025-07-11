@@ -1,0 +1,27 @@
+#ifndef V4_H_INCLUDED
+#define V4_H_INCLUDED
+
+#include "TCNConstants.h"
+#include "SixPack.h"
+
+using namespace std;
+using namespace tcnconstants;
+
+class V4
+{
+public:
+    static const Vid
+    SixPack * m_sptr;
+    int m_tcnet;
+    V4(int tcnet)
+    {
+        m_tcnet = tcnet;
+        m_sptr = new SixPack(TCNConstants::arrayOfTCNs[tcnet][sp_size]);
+    }
+    ~V4 ()
+    {
+        delete m_sptr;
+    }
+};
+
+#endif // V4_H_INCLUDED

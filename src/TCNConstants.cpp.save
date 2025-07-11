@@ -1,0 +1,12 @@
+// TCNConstants.cpp
+
+#include <iostream>
+#include <vector>
+#include <cassert>
+
+#include "TCNConstants.h"
+
+using namespace tcnconstants;
+
+int TCNConstants::arrayOfTCNs[1][tcn_max];
+

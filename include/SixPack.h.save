@@ -1,0 +1,24 @@
+#ifndef SIXPACK_H_INCLUDED
+#define SIXPACK_H_INCLUDED
+
+#include    <iostream>
+#include    "TCNConstants.h"
+#include    "Neurons.h"
+
+using namespace std;
+using namespace tcnconstants;
+/* TODO Create internal L1-l6 structure - 2D good enough */
+
+class SixPack
+{
+public:
+    int m_Vid;      // which Vid layers?
+    int m_origin{0};
+    int m_tcnet;
+    SixPack(int);   // constructor
+//    int topIndex(); computable from origin + sixpack_size
+    // supply x, y, z sixpack size and origin
+    int topIndex();
+};
+
+#endif // SIXPACK_H_INCLUDED

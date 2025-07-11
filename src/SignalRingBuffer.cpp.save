@@ -1,0 +1,40 @@
+#include <iostream>
+#include "SignalRingBuffer.h"
+
+namespace srb
+{
+int *   SignalRingBuffer::clockBuffer;
+short * SignalRingBuffer::sizeBuffer;
+int     SignalRingBuffer::nextSlot;
+
+SignalRingBuffer::SignalRingBuffer (int bufferSize)
+{
+    SignalRingBuffer::bufferLength = bufferSize;
+    SignalRingBuffer::nextSlot = bufferSize;
+    SignalRingBuffer::clockBuffer = new int [bufferSize];
+    SignalRingBuffer::sizeBuffer = new short (bufferSize);
+}
+
+// need destructor for all allocated arrays
+
+int SignalRingBuffer::bufferLength;
+int SignalRingBuffer::nextSlot;
+int SignalRingBuffer::count_signal_drops{0};
+int SignalRingBuffer::allocateSignalSlot(int clock, short size)
+{
+    nextSlot++;     // static retains it's value across calls
+    if (nextSlot >= SignalRingBuffer::bufferLength)
+    {
+        nextSlot = 0;
+    }
+    *(clockBuffer + nextSlot) = clock;
+    *(sizeBuffer + nextSlot) = size;
+    return nextSlot;        // this returns the slot number
+}
+int     SignalRingBuffer::getClock (int slot) {return *(clockBuffer + slot);}
+short   SignalRingBuffer::getSize (int slot) {return *(sizeBuffer + slot);}
+void    SignalRingBuffer::setClock (int slot, int clock) { *(clockBuffer + slot) = clock; }
+void    SignalRingBuffer::setSize (int slot, short size) { *(sizeBuffer + slot) = size; }
+int     * SignalRingBuffer::getClockOrigin () { return clockBuffer; }
+short   * SignalRingBuffer::getSizeOrigin () { return sizeBuffer; }
+}   // end srb namespace

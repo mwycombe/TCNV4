@@ -1,0 +1,12 @@
+// NodeConnectionMap.cpp
+#include <iostream>
+#include <bitset>
+
+#include "NodeConnectionMap.h"
+//#include "FakeTCN.h"
+
+using namespace std;
+using namespace tcn;
+using namespace tcnconstants;
+
+

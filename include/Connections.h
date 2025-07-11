@@ -1,0 +1,135 @@
+#ifndef CONNECTIONS_H_INCLUDED
+#define CONNECTIONS_H_INCLUDED
+#include <iostream>
+#include <vector>
+#include <queue>
+#include "Tcnconstants.h"
+#include "Connections.h"
+#include "Neurons.h"
+#include "SignalRingBuffer.h"
+
+using namespace std;
+
+namespace conns
+{
+
+    /*  Connections:
+        The connection object is associated with the signaling neuron.
+        It records which neurons are dependent and retains the connection parameters
+        This object provides the following capabilities:
+        1. Address of the target neuron (targets do not have a separate ID)
+        2. Clock time of any new signal sent to the target neuron
+        3. Learning reinforcement amplification for STP
+        4. Temporal distance to target neuron for calc when signal will reach there
+        5. Aging of reinforcement amplification
+        6. Learning reinforcement amplification for LTP = future
+        7. Aging of reinforcement amplification
+
+/*  Connections:
+    The connection object is associated with the signaling neuron.
+    It records which neurons are dependent and retains the connection parameters
+    This object provides the following capabilities:
+    1. Address of the target neuron (aka Neuron slot number)    4 bytes
+    2. Clock time of any new signal sent to target neuron       4 bytes
+    3. Temporal distance to target neuron                       4 bytes
+    4. Learning reinforcement amplification for STP             2 bytes
+    5. Aging of STP reinforcement amplification                 0 bytes compute on next signal
+    6. Learning reinforcement amplification for LTP             2 bytes
+    7. Aging of LTP reinforcement amplification                 0 bytes compute on next signal
+
+        We don't need a sourceID because that's where the connection is stored
+        and target neuron never cares about the signal origin.
+
+    We don't need a sourceID because that's where the connection is stored
+    and target neuron never cares about the signal origin.
+
+    NOTE: Because connection objects are so numerous they must be allocated on the heap.
+    Otherwise they will overrun the stack.
+*/
+struct Connection {
+    int32_t targetNeuronSlot {};            // where to enqueue the signal
+    int32_t lastSignalOriginTime {};        // last time a signal was issued 
+    int32_t temporalDistanceToTarget{};     // time to deliver to target
+    int16_t stpWeight{};                    // current weight for stp amplification
+    int16_t ltpWeigh{};                     // current weight for ltp amplification
+}
+class Connections
+{
+public:
+    
+    static short   *stp_accumulator_origin;        //stp accumulated level
+    static short   *ltp_accumulator_origin;        //ltp accumulated level
+    static int     *last_signal_clock_origin;      //used to determine how much STP & LTP decay has occurred
+    static int      next_connection_slot;          // used to allocate connections slots during
+                                                   // during building for the network
+    //      The signal size will be modified by STP and LTP and any other memory and enhancement actions
+
+    Connections(int);                       // how many connections to create
+
+    static int     connection_count;                // number of connections created
+    static int     get_target_neuron(int);          // return numer of target neuron
+    static int     get_temporal_distance(int);      // return temporal distance
+    static short   get_signal_size(int);            // get size of signal for connection
+    static short   get_stp_accumulator(int);        // return stp accumulator value
+    static short   get_ltp_accumulator(int);        // return ltp accumulator value
+    static void    set_target_neuron(int, int);     // set target neuron number for connection
+    static void    set_temporal_distance(int, int); // set the temporal distance from source to target for a connection
+    static void    set_signal_size(int, short);     // set the size of the signal for a connection
+    static void    set_stp_accumulator(int, short); // set the stp accumulator value
+    static void    set_ltp_accumulator(int, short); // set the ltp accumulator value
+    static int     * getNeuronsOrigin();            // return address of neuron pointer array
+    static int     * getTemporalDistanceOrigin();   // return address of temporal distance array
+    static short   * getSignalSizeOrigin();         // return address of signal size array
+    static short   * getStpOrigin();                // return address of stp accumulator array
+    static short   * getLtpOrigin();               // return address of ltp accumulator array
+    static short    apply_stp(int, short);
+    static short    apply_ltp(int, short);
+    static int     * getLastClockOrigin();          // return address of last clock array
+
+    ~Connections()
+    {
+    public:
+        static int *target_neurons_origin;    // 32 bit pointer to the target
+        static int *temporal_distance_origin; // relative clock distance to target
+        static short *signal_size_origin;     // current size of signal for this connection/synapse - base is 1000
+        static short *stp_accumulator_origin; // stp accumulated level
+        static short *ltp_accumulator_origin; // ltp accumulated level
+        static int *last_signal_clock_origin; // used to determine how much STP & LTP decay has occurred
+        static int next_connection_slot;      // used to allocate connections slots during
+        //      The signal size will be modified by STP and LTP and any other memory and enhancement actions
+
+        Connections(int); // how many connections to create
+
+        static int connection_count;                 // number of connections created
+        static int get_target_neuron(int);           // return numer of target neuron
+        static int get_temporal_distance(int);       // return temporal distance
+        static short get_signal_size(int);           // get size of signal for connection
+        static short get_stp_accumulator(int);       // return stp accumulator value
+        static short get_ltp_accumulator(int);       // return ltp accumulator value
+        static void set_target_neuron(int, int);     // set target neuron number for connection
+        static void set_temporal_distance(int, int); // set the temporal distance from source to target for a connection
+        static void set_signal_size(int, short);     // set the size of the signal for a connection
+        static void set_stp_accumulator(int, short); // set the stp accumulator value
+        static void set_ltp_accumulator(int, short); // set the ltp accumulator value
+        static int *getNeuronsOrigin();              // return address of neuron pointer array
+        static int *getTemporalDistanceOrigin();     // return address of temporal distance array
+        static short *getSignalSizeOrigin();         // return address of signal size array
+        static short *getStpOrigin();                // return address of stp accumulator array
+        static short *getLtpOrigin();                // return address of ltp accumulator array
+        static short apply_stp(int, short);
+        static short apply_ltp(int, short);
+        static int *getLastClockOrigin(); // return address of last clock array
+
+        ~Connections()
+        {
+            delete[] target_neurons_origin;
+            delete[] temporal_distance_origin;
+            delete[] signal_size_origin;
+            delete[] stp_accumulator_origin;
+            delete[] ltp_accumulator_origin;
+            delete[] last_signal_clock_origin;
+        }
+    };
+
+} // end of conns namespace scope
+#endif // CONNECTIONS_H_INCLUDED

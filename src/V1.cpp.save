@@ -1,0 +1,10 @@
+// V1.cpp
+
+#include "V1.h"
+#include "TCNConstants.h"
+#include "SixPack.h"
+
+class V1
+{
+    // nothing more to do here
+};

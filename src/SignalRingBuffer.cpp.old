@@ -1,0 +1,29 @@
+// Neuron.h
+#include <iostream>
+#include "signalringbuffer.h"
+SignalRingBuffer::SignalRingBuffer (int bufferSize)
+{
+    SignalRingBuffer::bufferLength = bufferSize;
+    SignalRingBuffer::nextSlot = bufferSize;
+    clockBuffer = new int [bufferSize];
+    sizeBuffer = new int (bufferSize);
+}
+int SignalRingBuffer::bufferLength;
+int SignalRingBuffer::nextSlot;
+int SignalRingBuffer::allocateSignalSlot(int clock, int size)
+{
+    nextSlot++;     // static retains it's value across calls
+    if (nextSlot >= SignalRingBuffer::bufferLength)
+    {
+        nextSlot = 0;
+    }
+    *(clockBuffer + nextSlot) = clock;
+    *(sizeBuffer + nextSlot) = size;
+    return nextSlot;        // this returns the slot number
+}
+int SignalRingBuffer::getClock (int slot) {return *(clockBuffer + slot);}
+int SignalRingBuffer::getSize (int slot) {return *(sizeBuffer + slot);}
+void SignalRingBuffer::setClock (int slot, int clock) { *(clockBuffer + slot) = clock; }
+void SignalRingBuffer::setSize (int slot, int size) { *(sizeBuffer + slot) = size; }
+int * SignalRingBuffer::getClockOrigin () { return clockBuffer; }
+int * SignalRingBuffer::getSizeOrigin () { return sizeBuffer; }

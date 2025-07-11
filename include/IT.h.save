@@ -1,0 +1,27 @@
+#ifndef IT_H_INCLUDED
+#define IT_H_INCLUDED
+
+#include "TCNConstants.h"
+#include "SixPack.h"
+
+using namespace std;
+using namespace tcnconstants;
+
+class IT
+{
+public:
+    static const int Vid{6};
+    SixPack * m_sptr;
+    int m_tcnet;
+    IT(int tcnet)
+    {
+        m_tcnet = tcnet;
+        m_sptr = new SixPack(Vid, TCNConstants::arrayOfTCNs[tcnet][sp_size]);
+    }
+    ~IT()
+    {
+        delete m_sptr;
+    }
+};
+
+#endif // IT_H_INCLUDED

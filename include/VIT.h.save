@@ -1,0 +1,27 @@
+#ifndef VIT_H_INCLUDED
+#define VIT_H_INCLUDED
+
+#include "TCNConstants.h"
+#include "SixPack.h"
+
+using namespace std;
+using namespace tcnconstants;
+
+class VIT
+{
+public:
+    static const int Vid{6};
+    SixPack * m_sptr;
+    int m_tcnet;
+    VIT(int tcnet)
+    {
+        m_tcnet = tcnet;
+        m_sptr = new SixPack(Vid, TCNConstants::arrayOfTCNs[tcnet][sp_size]);
+    }
+    ~VIT()
+    {
+        delete m_sptr;
+    }
+};
+
+#endif // IT_H_INCLUDED

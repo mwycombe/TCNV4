@@ -1,0 +1,90 @@
+#ifndef NEURONS_H_INCLUDED
+#define NEURONS_H_INCLUDED
+#include <cstddef>
+#include <vector>
+#include "SignalRingBuffer.h"
+#include "TCNConstants.h"
+#include "Connections.h"
+
+/* POP
+    All neuron references exchanged with outside classes are done using
+    the neuron slot number. This avoid any issues if neurons or the queue
+    of neurons and signals are re-provisioned on the heap.
+    Signals are pushed onto the neuron signalQueue in the order they arise, which
+    is not related to the future clock time when they will become active.
+    Thus, all tests for signal aggregation and next lowest even clock must scan
+    the entire signal queue. The was determined to be a much better performer
+    than sorting the signal queue vector by future clock value every time a new
+    signal is added to the neuron's signal queue.
+*/
+
+using namespace std;
+using namespace tcnconstants;
+
+namespace neurons
+{
+
+typedef vector<int> * v_i_ptr;  // signal queue vector pointers
+
+class Neurons
+{
+    // make everything public for speed of access.
+    public:
+        static int * refractoryEndOrigin;
+        static v_i_ptr * signalQueueOrigin; // vectors of enqueued signals
+        static v_i_ptr * dependentsOrigin;  // vectors or target neurons
+        static  int * necvOrigin;          // next event clock value from signal queue on Neuron
+        static vector<int>::const_iterator int_citer;
+        static  int signalClock;        // used to speed up signal scanning
+
+        static int   *  get_refractoryEndOrigin();
+        static v_i_ptr *  get_signalQueue_Origin();
+        static v_i_ptr *  get_dependentsOrigin();
+        static int      get_refractoryEnd(int);
+        static int      get_necv(int);
+        static void     set_necv(int);
+        static void     set_refractoryEnd(int, int);
+        static void     purge_signals(int);
+        static int      get_nextNeuronSlot();
+        static int      allocateNeurons(int v);
+        static void     add_dependent(int, int);
+        static void     enqueueIncomingSignal(int, int);
+        static void     deleteEmptySignalQueue(int);
+        static void     aggregate_queued_signals(int, int);
+        static void     notify_dependents(int, int);
+        static void     signal_connection(int, int);
+        static int      nextNeuronSlot;
+        static int      neuronCount;
+        static int      relative_aggregation_array[];
+        static int      absolute_aggregation_array[];
+        static int      window_reduction_factors[];
+        static int      provisioned_signal;
+        static int      conn_clock;
+        static short    conn_size;
+        
+        TCNConstants * tcn_params;
+
+        Neurons (int);
+
+        ~Neurons()
+        {
+            // free up dynamic TCNConstants
+            delete tcn_params;
+            tcn_params = nullptr;
+                        // clean up anything allocated, including dynamic vectors
+            delete [] refractoryEndOrigin;
+
+            for (int i=0; i < neuronCount; i++)
+            {
+                if (*(signalQueueOrigin + i) != nullptr)
+                    delete  *(signalQueueOrigin + i);
+            }
+            delete [] signalQueueOrigin;
+            delete [] dependentsOrigin;
+
+        }
+};
+
+}  // end neurons namespace
+
+#endif // NEURONS_H_INCLUDED

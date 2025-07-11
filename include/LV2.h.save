@@ -1,0 +1,27 @@
+#ifndef LV2_H_INCLUDED
+#define LV2_H_INCLUDED
+
+#include "TCNConstants.h"
+#include "SixPack.h"
+
+using namespace std;
+using namespace tcnconstants;
+
+class LV2
+{
+public:
+    static const int Vid{2}; //Which vid layer
+    SixPack * m_sptr;
+    int m_tcnet;
+    VL2(int tcnet)
+    {
+        m_tcnet = tcnet;
+        m_sptr = new SixPack(Vid, TCNConstants::arrayOfTCNs[tcnet][sp_size]);
+    }
+    ~LV2 ()
+    {
+        delete m_sptr;
+    }
+};
+
+#endif // V2_H_INCLUDED
