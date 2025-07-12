@@ -3,13 +3,17 @@
 ### Purpose
 This is yet another rewrite but using the new features in C++17 that supports shared global constants using "inline constexpr" which allows them to be included multiple times in multiple T(ranslation) U(nits) but have the linker reduce them all to a singular definition.
 
-The next innovation is to use vectos for storing everything as vectors allocated the storage for their elements on the hep and TCN has some huge vectors - tens of millions of elements.
+The next innovation is to use vectors for storing everything as vectors allocate the storage for their elements on the heap and TCN has some huge vectors - tens of millions of elements.
 
-The new testing section is to support trying out verioius approaches to problems to find the optimum implentation. For this version of TCN, as before, element index number is preferred over pointers as X64 pointers are now 8 bytes long, whereas integers are limited to 4 bytes. With tens of millions of elements the savings are relevant and wherever possible performance will be preserved by using refs which are not stored as pointers.
+The new testing section is to support trying out verious approaches to problems to find the optimum implementation. For this version of TCN, as before, element index number is preferred over pointers as X64 pointers are now 8 bytes long, whereas integers are limited to 4 bytes. With tens of millions of elements the savings are relevant and wherever possible performance will be preserved by using refs which implemented but not stored as pointers.
 
 ### Basic Testing
-The new directory is used of testing out various consructs and alos building a series of basic test cases to make sure the framework operates as expected.
+The new directory is used for testing out various constructs and also building a series of basic test cases to make sure the framework operates as expected.
 As much as possible the tests are linked with the TCNConstants definitons so they represent how things will be in the real world. As needed overrides are provided to limit the size of the tests.
+
+A log system will be used to log the results so they can be reviewed and analyzed after a given test run.
+
+The TCNV4/lib is added to all compile and link runs so object references can be resolved by the linker. Any cpp source files required to support the testing must first be compiled only to generate the appropiate .o file in /lib.
 
 All testing the involves connections will have an impulse injection system that creates a connection event. The connection event will then provision a signal with the approprites parameters, log the signal, and, where appropriate, informa the target neuron of the incoming signal. The target neuron is responsible to just enqueue the signal. It will be processed later - maybe at the next clock tick.
 
