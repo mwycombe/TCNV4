@@ -22,6 +22,9 @@ Basic test to make sure a small SRB acts as a ring buffer when receiving more re
 A small SRB pool is constructed. A list of Signal allocations is presented with the Reserved field set to an increasing short int. 
 The results show the SRB index number provisioned, and the incremental number in Reserved.
 
+July 12, 2025: srbwrap.cpp concluded. Start srb current slot @ INT_MAX to make sure we start allocating from
+slot 0. This should apply to all initializations to avoid the one-off problems.
+
 2. **Connection testing**\
 A connection is created and connected to a target neuron. This test is for on connection and one target neuron.
 A cascade impulse is presented to the connection which should provision a signal and deliver it with the correct time clock and amplitude to the target neuron.

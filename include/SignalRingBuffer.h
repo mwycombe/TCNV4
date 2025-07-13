@@ -1,5 +1,11 @@
 #ifndef SIGNALRINGBUFFER_H_INCLUDED
 #define SIGNALRINGBUFFER_H_INCLUDED
+
+#include "Signal.h"
+#include <cstdint>
+#include <vector>
+#include <climits>
+
 /** \brief SignalRingBuffer
  *
  * \param size of buffer
@@ -23,11 +29,9 @@
      * The SignalRingBuffer class creates a large circular vector of signals.
      * 
      */
-    struct Signal {
-        int32_t deliveryTime {};    // signal origin time + neuron temporal distance
-        int16_t amplitude {};       // connection modified signal ampliude
-        int16_t reserved {};        // reserved - rounding
-    };
+
+    static std::int32_t currentSignalSlot {INT32_MAX}; // ensure we start at 0 slot
+    static std::int32_t signalBufferCapacity {};     // init'd for performance
     class SignalRingBuffer {
         /**
          * The SRB class will be used to allocate, deallocate the vector of signals.
@@ -35,19 +39,82 @@
          * The requestor for a signal is responsible for initializing the signal fields.
          */
         public:
+
+        // class constructor
+        SignalRingBuffer (std::int32_t ringSize) 
+        {
+            #ifdef TESTING_MODE
+            // just reserve 75 srb slots
+            m_srb.reserve(75);
+            #else
+            m_srb.reserve(ringSize);
+            #endif 
+            signalBufferCapacity = m_srb.capacity();
+            // init m_srb with all empty signals
+            // regardless of size
+            // create an empty signal
+
+            signal::Signal emptySignal{ 1,1000,0}; // default values
+
+            for (int i = 0; i < m_srb.capacity(); ++i) {
+                #ifdef TESTING_MODE
+                    emptySignal.testId = i;
+                #endif
+                m_srb.push_back(emptySignal);
+            }
+        }
+        std::int32_t getCurrentSignalSlot() { return currentSignalSlot; }
+        signal::Signal getSlotRef(int slot) { return m_srb[currentSignalSlot]; }
+        std::int32_t allocateSignalSlot()
+        /**
+         * @brief returns the next avaible srb slot
+         * 
+         * When the srb gets to the last slot it just wraps, regardless.
+         * It never changes the signal contents; that's up to the connection
+         * that asked for the signal slot to be dispensed.
+         * 
+         * The class uses a static to keep track of the current slot.
+         * 
+         * Future: srb will track oldest dispensed slot and keep statistics
+         * on how many times we wrapped; used for future tuning of the srb
+         * capacity.
+         * 
+         * @param   None
+         * 
+         * @return  The signal slot number for the next to be used.
+         * 
+         * @throws  Nothing
+         */
+        {
+            if (currentSignalSlot < signalBufferCapacity) {
+                // this will be the most frequent path
+                return ++currentSignalSlot;
+            }
+            else {
+                // srb has wrapped
+                currentSignalSlot = 0;
+                return currentSignalSlot;
+            }
+        }
+
+
+        private:
+            std::vector<signal::Signal> m_srb;
+
         // static int *clockBuffer;
         // static short *sizeBuffer;
         // static int bufferLength;
-        std::vector<Signal> srb;                    // forward declaration of srb.
-        int32_t nextSignalSlot();               // returns next vacant slot number
-        int32_t& signalSlotRef(int32_t);            // ref to a slot
-        int32_t getSignalClock (int32_t&);           // return clock in slot
-        int16_t getSignalWeight (int16_t&);          // return weight in slot
-        void setSignalClock (int32_t&);              // set signal clock value
-        void setSignalWeight (int32_t&, int16_t&_);       // set signal weight
-        static int count_signal_drops;              // statistics
+        // std::vector<Signal> srb;                    // forward declaration of srb.
+        // std::int32_t& signalSlotRef(std::int32_t);            // ref to a slot
+        // std::int32_t getSignalClock (std::int32_t&);           // return clock in slot
+        // std::int16_t getSignalWeight (std::int16_t&);          // return weight in slot
+        // void setSignalClock (std::int32_t&);              // set signal clock value
+        // void setSignalWeight (std::int32_t&, std::int16_t&_);       // set signal weight
+        // static int count_signal_drops;              // statistics
+        // }
     
     };
 }  // end srb namespace
+
 #endif // SIGNALRINGBUFFER_H_INCLUDED
 

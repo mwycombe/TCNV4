@@ -1,10 +1,17 @@
 // TCNConstants.h
 #ifndef TCNCONSTANTS_H_INCLUDED
 #define TCNCONSTANTS_H_INCLUDED
-
 #include <iostream>
 #include <climits>
 #include <cstdint>
+
+/**
+ * TESTING_MODE is defined to enable testing features.
+ * It can be used to conditionally compile test-specific code.
+ * This should be defined in the build system or at the top of the main testing file.
+ */
+
+#define TESTING_MODE
 
 /**
  * July 2025

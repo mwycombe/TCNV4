@@ -5,14 +5,13 @@
 #include <iomanip>
 #include <ctime>
 #include <time.h>
+#include "Logger.h"
 
 /**
  * Sample instantion of a Logger class in C++17
  * 
  *     Logger logger(INFO, "application.log"); // Log INFO and above to console and file
  * 
- */
-
 */
 
 
