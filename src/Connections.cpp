@@ -5,10 +5,8 @@
 #include "Connections.h"
 //#include "FakeTCN.h"
 
-using namespace std;
-using namespace tcnconstants;
-using namespace conns;
-
+namespace conns
+{
 
 int *   Connections::target_neurons_origin;        //32 bit pointer to the target
 int *   Connections::temporal_distance_origin;      //relative clock distance to target
@@ -84,3 +82,4 @@ short   Connections::apply_stp(int connNumber, short signal_size) // compute and
 short   Connections::apply_ltp(int connNumber, short signal_size) // compute and return ltp enhance signal size
 {    return (signal_size);   }  // do nothing for now
 
+}   // end of namespace conns

@@ -4,7 +4,7 @@
 #include <vector>
 #include <queue>
 #include "Tcnconstants.h"
-#include "Connections.h"
+#include "Connection.h"
 #include "Neurons.h"
 #include "SignalRingBuffer.h"
 
@@ -17,7 +17,7 @@ namespace conns
         The connection object is associated with the signaling neuron.
         It records which neurons are dependent and retains the connection parameters
         This object provides the following capabilities:
-        1. Address of the target neuron (targets do not have a separate ID)
+        1. Slot number of the target neuron.
         2. Clock time of any new signal sent to the target neuron
         3. Learning reinforcement amplification for STP
         4. Temporal distance to target neuron for calc when signal will reach there
@@ -46,27 +46,29 @@ namespace conns
     NOTE: Because connection objects are so numerous they must be allocated on the heap.
     Otherwise they will overrun the stack.
 */
-struct Connection {
-    int32_t targetNeuronSlot {};            // where to enqueue the signal
-    int32_t lastSignalOriginTime {};        // last time a signal was issued 
-    int32_t temporalDistanceToTarget{};     // time to deliver to target
-    int16_t stpWeight{};                    // current weight for stp amplification
-    int16_t ltpWeigh{};                     // current weight for ltp amplification
-}
+
 class Connections
 {
 public:
-    
-    static short   *stp_accumulator_origin;        //stp accumulated level
-    static short   *ltp_accumulator_origin;        //ltp accumulated level
-    static int     *last_signal_clock_origin;      //used to determine how much STP & LTP decay has occurred
-    static int      next_connection_slot;          // used to allocate connections slots during
-                                                   // during building for the network
-    //      The signal size will be modified by STP and LTP and any other memory and enhancement actions
+    // static short   *stp_accumulator_origin;        //stp accumulated level
+    // static short   *ltp_accumulator_origin;        //ltp accumulated level
+    // static int     *last_signal_clock_origin;      //used to determine how much STP & LTP decay has occurred
+    // static int      next_connection_slot;          // used to allocate connections slots during
 
-    Connections(int);                       // how many connections to create
+    // during building for the network
+    // The signal size will be modified by STP and LTP and any other memory and enhancement actions
 
-    static int     connection_count;                // number of connections created
+    Connections(std::int32_t connectionPoolSize)
+    {
+        #ifdef TESTING_MODE
+        std::vector<connection::Connection> m_connPool.reserve(75);
+        #else
+        std::vector<connection::Connection> m_connPool.reserve(connectionPoolSize);
+        #endif
+
+    }  // how many connections to create
+
+    static int32_t     connection_count;                // number of connections created
     static int     get_target_neuron(int);          // return numer of target neuron
     static int     get_temporal_distance(int);      // return temporal distance
     static short   get_signal_size(int);            // get size of signal for connection
@@ -86,8 +88,7 @@ public:
     static short    apply_ltp(int, short);
     static int     * getLastClockOrigin();          // return address of last clock array
 
-    ~Connections()
-    {
+
     public:
         static int *target_neurons_origin;    // 32 bit pointer to the target
         static int *temporal_distance_origin; // relative clock distance to target
@@ -95,19 +96,39 @@ public:
         static short *stp_accumulator_origin; // stp accumulated level
         static short *ltp_accumulator_origin; // ltp accumulated level
         static int *last_signal_clock_origin; // used to determine how much STP & LTP decay has occurred
-        static int next_connection_slot;      // used to allocate connections slots during
+        static int next_connection_slot;      // used to allocate connections slots during building of the
+                                              // neuron connection networks
         //      The signal size will be modified by STP and LTP and any other memory and enhancement actions
 
-        Connections(int); // how many connections to create
 
         static int connection_count;                 // number of connections created
-        static int get_target_neuron(int);           // return numer of target neuron
-        static int get_temporal_distance(int);       // return temporal distance
-        static short get_signal_size(int);           // get size of signal for connection
+        // get the target neuron slot for the given connectoin
+        int32_t get_target_neuron(int32_t connectionSlot, int32_t neuronSlot)
+        {
+            return 0;   // return neuron target slot for the connection
+        }           
+        // return the temporal clock distance for the connection slot
+        int32_t get_temporal_distance(int32_t connectionSlot)
+        {
+            return 0;// return temporal distance
+        }       
+        int16_t get_signal_size(int32_t connectionSlot)
+        {
+            return 0;   // return the weigth for the current connection
+        }             
         static short get_stp_accumulator(int);       // return stp accumulator value
         static short get_ltp_accumulator(int);       // return ltp accumulator value
-        static void set_target_neuron(int, int);     // set target neuron number for connection
-        static void set_temporal_distance(int, int); // set the temporal distance from source to target for a connection
+        // set the target neuron slot for the connection slot
+        void set_target_neuron(int32_t connectionSlot, int32_t neuronslot)
+        {
+                         // set target neuron number for connection
+
+        }
+        void set_temporal_distance(int32_t connectionSlot, int32_t temporalDistanc)
+        {
+            // set temporal distance to target neuron for the connection
+        }
+         // set the temporal distance from source to target for a connection
         static void set_signal_size(int, short);     // set the size of the signal for a connection
         static void set_stp_accumulator(int, short); // set the stp accumulator value
         static void set_ltp_accumulator(int, short); // set the ltp accumulator value
@@ -122,13 +143,11 @@ public:
 
         ~Connections()
         {
-            delete[] target_neurons_origin;
-            delete[] temporal_distance_origin;
-            delete[] signal_size_origin;
-            delete[] stp_accumulator_origin;
-            delete[] ltp_accumulator_origin;
-            delete[] last_signal_clock_origin;
+            ;   // when allocated vectors go out of scope their heap usage is released.
         }
+
+        private:
+            std::vector<connection::Connection> m_connPool;
     };
 
 } // end of conns namespace scope

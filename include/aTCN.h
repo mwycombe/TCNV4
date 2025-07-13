@@ -12,11 +12,7 @@
 
 // using in hdr files is frowned up; use specific references.
 
-using namespace std;
-using namespace tcnconstants;
-using namespace neurons;
-using namespace conns;
-using namespace srb;
+
 
 namespace tcn
 {
@@ -111,6 +107,8 @@ namespace tcn
             Therefore 1 GB can house ~2 million neurons with 10x connections + signals
     */
 
+    // make sure we start processing with the oldest clocks
+    static  int32_t oldestClock {INT32_MIN};
     class aTCN
     {
     public:

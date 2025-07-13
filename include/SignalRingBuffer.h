@@ -63,6 +63,12 @@
                 m_srb.push_back(emptySignal);
             }
         }
+
+        ~SignalRingBuffer ()
+        {   
+            ;   // when allcoated vectors go out of scope their heap usage is released
+        }
+
         std::int32_t getCurrentSignalSlot() { return currentSignalSlot; }
         signal::Signal getSlotRef(int slot) { return m_srb[currentSignalSlot]; }
         std::int32_t allocateSignalSlot()
@@ -101,18 +107,7 @@
         private:
             std::vector<signal::Signal> m_srb;
 
-        // static int *clockBuffer;
-        // static short *sizeBuffer;
-        // static int bufferLength;
-        // std::vector<Signal> srb;                    // forward declaration of srb.
-        // std::int32_t& signalSlotRef(std::int32_t);            // ref to a slot
-        // std::int32_t getSignalClock (std::int32_t&);           // return clock in slot
-        // std::int16_t getSignalWeight (std::int16_t&);          // return weight in slot
-        // void setSignalClock (std::int32_t&);              // set signal clock value
-        // void setSignalWeight (std::int32_t&, std::int16_t&_);       // set signal weight
-        // static int count_signal_drops;              // statistics
-        // }
-    
+
     };
 }  // end srb namespace
 
