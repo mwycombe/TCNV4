@@ -61,9 +61,9 @@ public:
     Connections(std::int32_t connectionPoolSize)
     {
         #ifdef TESTING_MODE
-        std::vector<connection::Connection> m_connPool.reserve(75);
+        m_connPool.reserve(75);
         #else
-        std::vector<connection::Connection> m_connPool.reserve(connectionPoolSize);
+        m_connPool.reserve(connectionPoolSize);
         #endif
 
     }  // how many connections to create
@@ -128,19 +128,21 @@ public:
         {
             // set temporal distance to target neuron for the connection
         }
-         // set the temporal distance from source to target for a connection
-        static void set_signal_size(int, short);     // set the size of the signal for a connection
-        static void set_stp_accumulator(int, short); // set the stp accumulator value
-        static void set_ltp_accumulator(int, short); // set the ltp accumulator value
-        static int *getNeuronsOrigin();              // return address of neuron pointer array
-        static int *getTemporalDistanceOrigin();     // return address of temporal distance array
-        static short *getSignalSizeOrigin();         // return address of signal size array
-        static short *getStpOrigin();                // return address of stp accumulator array
-        static short *getLtpOrigin();                // return address of ltp accumulator array
+        void set_signal_size(int32_t signalSlot, int16_t )
+        {
+            ;   // set the signal weigth into the signal 
+        }     // set the size for the signal
+        void set_stp_accumulator(int32_t connectionSlot, int16_t stpWeight)
+        {
+    
+        } // set the stp accumulator value
+        static void set_ltp_accumulator(int32_t connectionslot, int16_t ltpWeight)
+        {
+
+        } 
         static short apply_stp(int, short);
         static short apply_ltp(int, short);
-        static int *getLastClockOrigin(); // return address of last clock array
-
+     
         ~Connections()
         {
             ;   // when allocated vectors go out of scope their heap usage is released.
