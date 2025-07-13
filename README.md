@@ -26,7 +26,7 @@ July 12, 2025: srbwrap.cpp concluded. Start srb current slot @ INT_MAX to make s
 slot 0. This should apply to all initializations to avoid the one-off problems.
 
 2. **Connection testing**\
-A connection is created and connected to a target neuron. This test is for on connection and one target neuron.
+A connection is created and connected to a target neuron. This test is for one connection and one target neuron.
 A cascade impulse is presented to the connection which should provision a signal and deliver it with the correct time clock and amplitude to the target neuron.
 
 3. **Multiple connection testing**\
