@@ -61,7 +61,7 @@ public:
             ss << "[" << levelStr << "] " << message << std::endl;
 
             // Output to console
-            std::cout << ss.str();
+            // std::cout << ss.str();
 
             // Output to file if open
             if (m_outputFile.is_open()) {

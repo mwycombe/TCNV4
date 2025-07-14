@@ -12,6 +12,7 @@
  */
 
 #define TESTING_MODE
+#undef TESTING_MODE
 
 /**
  * July 2025

@@ -3,12 +3,27 @@
 #include <iostream>
 #include <vector>
 #include <queue>
-#include "Tcnconstants.h"
+#include "TCNConstants.h"
 #include "Connection.h"
 #include "Neurons.h"
 #include "SignalRingBuffer.h"
 
-using namespace std;
+// make this extern global so all can access it.
+
+std::vector<connection::Connection> m_connPool{};
+int32_t currentConnectionSlot{-1};  // allocation always returns ++currentConnectionSlot - no wrap like srb
+int32_t connectionPoolCapacity{};   // filled in by constructor
+
+// other globals used by connections
+
+extern std::vector<neuron::Neuron> m_neuronPool;
+extern std::int32_t currentNeuronSlot; // forces start @ 0
+extern std::int32_t neuronPoolCapacity;
+
+std::int32_t currentSignalSlot{INT32_MAX};
+std::int32_t signalBufferCapacity{};
+std::vector<signal::Signal> m_srb{};
+
 
 namespace conns
 {
@@ -51,7 +66,6 @@ namespace conns
         Otherwise they will overrun the stack.
 
     */
-    int32_t currentConnectionSlot;
     class Connections
     {
 
@@ -64,6 +78,7 @@ namespace conns
         // during building for the network
         // The signal size will be modified by STP and LTP and any other memory and enhancement actions
 
+        // Class constructor
         Connections(std::int32_t connectionPoolSize)
         {
 
@@ -179,8 +194,7 @@ namespace conns
                 ;   // when allocated vectors go out of scope their heap usage is released.
             }
 
-            // make this public so all can access it.
-            std::vector<connection::Connection> m_connPool;
+
     };
 
 } // end of conns namespace scope

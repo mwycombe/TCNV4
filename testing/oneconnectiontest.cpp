@@ -8,6 +8,17 @@
 #include "SignalRingBuffer.h"
 #include "Neurons.h"
 
+extern std::vector<connection::Connection> m_connPool;
+extern int32_t currentConnectionSlot;
+extern int32_t connectionPoolCapacity;
+
+/* other externs used by connection*/
+extern std::vector<signal::Signal> m_srb;
+extern int32_t currentSignalSlot;
+extern int32_t signalBufferCapacity;
+
+
+
 int main ()
 {
   /**
@@ -44,8 +55,8 @@ int main ()
    // get first signal and poke connection
    // check if signal was delivered to neuron
 
-  int32_t cSlot = conns::currentConnectionSlot;
-  int32_t nSlot = neurons::currentNeuronSlot;
+  int32_t cSlot = currentConnectionSlot;
+  int32_t nSlot = currentNeuronSlot;
 
    std::cout << "End of oneconnection test..." << std::endl;
 

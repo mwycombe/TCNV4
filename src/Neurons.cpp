@@ -7,57 +7,49 @@
 #include <limits.h>
 //#include "FakeTCN.h"
 
-using namespace std;
-using namespace tcnconstants;
-//using namespace tcn;
-using namespace conns;
-using namespace srb;
 
+std::vector<neuron::Neuron> m_neuronPool{};
+std::int32_t currentNeuronSlot{-1};      // forces start @ 0
+std::int32_t neuronPoolCapacity{};       // filled in by constructor
 namespace neurons
 {
 
-int Neurons::nextNeuronSlot{-1};     // first neuron is slot  0
-int * Neurons::refractoryEndOrigin;
-v_i_ptr * Neurons::signalQueueOrigin;
-v_i_ptr * Neurons::dependentsOrigin;
-int * Neurons::necvOrigin;
+int32_t Neurons::absolute_aggregation_array[aggregation_window];
+int32_t Neurons::window_reduction_factors[aggregation_window];
+int32_t Neurons::provisioned_signal;    // holds signals as they are provisioned for a connection
+int32_t Neurons::conn_clock;        // used for connection signal building
+nt16_t Neurons::conn_size;       // used for connection signal building
+int32_t signalClock;                // the clock for a raised signal
 
-int Neurons::absolute_aggregation_array[aggregation_window];
-int Neurons::window_reduction_factors[aggregation_window];
-int Neurons::provisioned_signal;    // holds signals as they are provisioned for a connection
-int Neurons::conn_clock;        // used for connection signal building
-short Neurons::conn_size;       // used for connection signal building
-int signalClock;                // the clock for a raised signal
-
-vector<int>::const_iterator Neurons::int_citer;
+vector<int32_t>::const_iterator Neurons::int32_t_citer;
 
 
-Neurons::Neurons (int tcnet)
+Neurons::Neurons (int32_t tcnet)
 {
     // access constant parameters
     tcn_params = new TCNConstants;
 
 //    static const int neuron_count {tcn_params -> arrayOfTCNs[tcnet][tcn_neurons]}; // avoid repeat long expression
-    refractoryEndOrigin = new int[neuron_count];
+    refractoryEndOrigin = new int32_t[neuron_count];
     signalQueueOrigin = new v_i_ptr [neuron_count];  // array of vector pointers
     dependentsOrigin = new v_i_ptr  [neuron_count];  // array of vector pointers
-    necvOrigin = new int[neuron_count];
-    for (int i=0; i < neuron_count; i++)
+    necvOrigin = new int32_t[neuron_count];
+    for (int32_t i=0; i < neuron_count; i++)
     {
         *(refractoryEndOrigin + i) = 0; // all refractoryEnd start at zero
-        *(necvOrigin + i) = INT_MAX;        // necv start out at max value
+        *(necvOrigin + i) = INT32_t_MAX;        // necv start out at max value
         *(signalQueueOrigin + i) =  nullptr;    // not signal vectors yet
         *(dependentsOrigin + i)  =  nullptr;    // no connections yet
     }
     // set up the aggregation window reduction
-    for (int i=0; i < aggregation_window; i++)
+    for (int32_t i=0; i < aggregation_window; i++)
     {
         relative_aggregation_array[i] = -(i+1);
         window_reduction_factors[i] = 2^(i+1);
     }
 }
 
-int  * Neurons::get_refractoryEndOrigin()
+int32_t  * Neurons::get_refractoryEndOrigin()
 {    return refractoryEndOrigin;    }
 
 v_i_ptr  *  Neurons::get_signalQueue_Origin()
@@ -66,30 +58,30 @@ v_i_ptr  *  Neurons::get_signalQueue_Origin()
 v_i_ptr * Neurons::get_dependentsOrigin()
 {       return dependentsOrigin;    }
 
-int     Neurons::get_necv(int slot)
+int32_t     Neurons::get_necv(int32_t slot)
 {   return *(necvOrigin + slot);}
 
-int     Neurons::get_refractoryEnd(int slot)
+int32_t     Neurons::get_refractoryEnd(int32_t slot)
 {    return *(refractoryEndOrigin + slot);  }
 
-void    Neurons::set_refractoryEnd(int slot, int clock)
+void    Neurons::set_refractoryEnd(int32_t slot, int32_t clock)
 {    *(refractoryEndOrigin + slot) = clock; }
 
-int Neurons::get_nextNeuronSlot()
+int32_t Neurons::get_nextNeuronSlot()
 {      return allocateNeurons(1);   }
 
-int Neurons::allocateNeurons(int count)
+int32_t Neurons::allocateNeurons(int32_t count)
 {
-    int origin{nextNeuronSlot};
+    int32_t origin{nextNeuronSlot};
     nextNeuronSlot += count;
     return origin;
 }
- void   Neurons::add_dependent(int slot, int connection)
+ void   Neurons::add_dependent(int32_t slot, int32_t connection)
  {   // slot is the index of the neuron to which the connection is a dependent.
      // connection is the index of the connection
      (*(dependentsOrigin + slot))->push_back(connection); }
 
-void    Neurons::enqueueIncomingSignal(int nslot, int signalNumber)
+void    Neurons::enqueueIncomingSignal(int32_t nslot, int32_t signalNumber)
 {
     if  ( *(refractoryEndOrigin + nslot) >= *(SignalRingBuffer::clockBuffer + signalNumber) )
          {
@@ -99,7 +91,7 @@ void    Neurons::enqueueIncomingSignal(int nslot, int signalNumber)
          }
     if ( *(signalQueueOrigin + nslot) == nullptr)
     {
-        *(signalQueueOrigin + nslot) = new vector<int>;
+        *(signalQueueOrigin + nslot) = new vector<int32_t>;
     }
     (*(signalQueueOrigin + nslot)) -> push_back(signalNumber);
     if ( *(SignalRingBuffer::clockBuffer + signalNumber) < *(necvOrigin + nslot))
@@ -114,10 +106,10 @@ void    Neurons::enqueueIncomingSignal(int nslot, int signalNumber)
 //    }
     return;
 }
-void    Neurons::deleteEmptySignalQueue(int nslot)
+void    Neurons::deleteEmptySignalQueue(int32_t nslot)
 {   delete *(signalQueueOrigin + nslot); }
 
-void    Neurons::notify_dependents(int nslot, int clock)
+void    Neurons::notify_dependents(int32_t nslot, int32_t clock)
 {   // run through dependent vector and send them a signal
     auto connIterator = (*(dependentsOrigin + nslot))->begin();
     while ( connIterator != (*(dependentsOrigin + nslot))->end() )
@@ -131,7 +123,7 @@ void    Neurons::notify_dependents(int nslot, int clock)
 //    purge_signals(nslot);   // purge signals through refractory end period
     return;
 }
-void    Neurons::signal_connection(int connNumber, int clock)
+void    Neurons::signal_connection(int32_t connNumber, int32_t clock)
 {
     // provision a signal and send it to the target neuron - for future handling
     conn_clock = clock + *(Connections::temporal_distance_origin + connNumber);  // temporal distance
@@ -142,11 +134,11 @@ void    Neurons::signal_connection(int connNumber, int clock)
     return;
 }
 
-void    Neurons::purge_signals(int nslot)
+void    Neurons::purge_signals(int32_t nslot)
 {   // perform a complete rescan following a cascade
     auto signalIterator = (*(signalQueueOrigin + nslot))->begin();
-    int refractoryEnd = (*(refractoryEndOrigin + nslot));
-    int necv = INT_MAX;
+    int32_t refractoryEnd = (*(refractoryEndOrigin + nslot));
+    int32_t necv = int32_t_MAX;
     while (signalIterator != (*(signalQueueOrigin + nslot))->end())
     {
         if ( *(SignalRingBuffer::clockBuffer + (*signalIterator)) <= refractoryEnd)
@@ -160,13 +152,13 @@ void    Neurons::purge_signals(int nslot)
     }
     if ( (*(signalQueueOrigin + nslot))->empty())
     {
-        delete( *(signalQueueOrigin + nslot) );  // toss the empty vencto<int> object
+        delete( *(signalQueueOrigin + nslot) );  // toss the empty vencto<int32_t> object
         (*(signalQueueOrigin + nslot)) = nullptr;  // show signal queue unoccupied
     }
     (*(necvOrigin + nslot)) = necv;
 }
 
-void   Neurons::aggregate_queued_signals(int nslot, int clock)
+void   Neurons::aggregate_queued_signals(int32_t nslot, int32_t clock)
 {
     // any incoming signal will be for the future
     // TODO: determine how and when to look through enqueued signals to avoid overhead of scanning
@@ -177,13 +169,13 @@ void   Neurons::aggregate_queued_signals(int nslot, int clock)
     // signals older than aggregation window are ignored; they halve each tick.
     short signalAccumulator{0};    // used to accumulate signals towards cascade
     // pre-compute clock comparisons for speed
-    for (int i=0; i < aggregation_window; i++)
+    for (int32_t i=0; i < aggregation_window; i++)
     {   // build aggregation window clock range for fast comparison - relative array is negative numbers
         // [0] = -1; [1] = -2; [2] = -3 and so on
         absolute_aggregation_array[i] = clock + relative_aggregation_array[i];
     }
     // next event must happen after current clock value.
-    *(necvOrigin + nslot) = (*(necvOrigin + nslot) <= clock ) ? INT_MAX : *(necvOrigin + nslot);
+    *(necvOrigin + nslot) = (*(necvOrigin + nslot) <= clock ) ? int32_t_MAX : *(necvOrigin + nslot);
     while (signalIterator != (*(signalQueueOrigin + nslot))->end())
     {   // capture the clock value for the current signal
         signalClock = ( *(SignalRingBuffer::clockBuffer + *signalIterator));
@@ -201,7 +193,7 @@ void   Neurons::aggregate_queued_signals(int nslot, int clock)
         }
         else
         {
-            for (int i = 0; i < aggregation_window; i++)
+            for (int32_t i = 0; i < aggregation_window; i++)
             {
                 if ( (*(SignalRingBuffer::clockBuffer + *(signalIterator))) ==
                         absolute_aggregation_array[i])

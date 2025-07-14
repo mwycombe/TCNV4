@@ -33,8 +33,9 @@ class Logger {
 
 public:
 
-    Logger(LogLevel minLevel = INFO, const std::string& filename = "") :
-        m_minLevel(minLevel) {
+
+    Logger(bool console = false, LogLevel minLevel = INFO, const std::string& filename = "") :
+         m_console{console}, m_minLevel{minLevel} {
         if (!filename.empty()) {
             m_outputFile.open(filename, std::ios::app);
             if (!m_outputFile.is_open()) {
@@ -72,7 +73,8 @@ public:
             ss << "[" << levelStr << "] " << message << std::endl;
 
             // Output to console
-            std::cout << ss.str();
+            if (m_console) {std::cout << ss.str();}
+            
 
             // Output to file if open
             if (m_outputFile.is_open()) {
@@ -84,6 +86,7 @@ public:
         m_minLevel = level;
     }        
 private:
+    bool m_console;
     LogLevel m_minLevel;
     std::ofstream m_outputFile;
 };

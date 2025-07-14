@@ -8,6 +8,11 @@
 #include "Connections.h"
 #include "Signal.h"
 
+
+extern std::vector<neuron::Neuron> m_neuronPool;
+extern std::int32_t currentNeuronSlot; // forces start @ 0
+extern std::int32_t neuronPoolCapacity;
+
 /** POP
     All neuron references exchanged with outside classes are done using
     the neuron slot number. This avoids any issues if neurons or the queue
@@ -40,8 +45,7 @@ using namespace tcnconstants;
 
 namespace neurons
 {
-    std::int32_t currentNeuronSlot {INT32_MIN}; // forces start @ 0
-    std::int32_t neuronPoolCapacity {};
+
     class Neurons {
         /**
          * The Neurons class is responsible for creating the pool of neurons which
@@ -60,7 +64,6 @@ namespace neurons
         //     static  int signalClock;        // used to speed up signal scanning// make everything public for speed of access.
         public:
 
-            Neurons (std::int32_t poolSize)
             {
                 #ifdef TESTING_MODE
                 // just reserve 75 neurons for initial testing
@@ -115,8 +118,9 @@ namespace neurons
                 ; // allocated vector heap will be freed when they go out of scope.
             }
 
-            // make this public so all can access it
-            std::vector<neuron::Neuron> m_neuronPool;
+        private:
+            int32_t aggregatorWidth{2};     // period when signals must arrive to be counted
+            int32_t refractoryWidth{5};     // refractory period width
     };
 
 } // end neurons namespace

@@ -19,8 +19,14 @@
 
  #include <iostream>
  #include <vector>
-
  #include "TCNConstants.h"
+
+ // Make signal ring buffer and control global    
+
+std::int32_t currentSignalSlot{INT32_MAX};
+std::int32_t signalBufferCapacity{};
+std::vector<signal::Signal> m_srb{};
+
  namespace srb
  {
     /**
@@ -28,8 +34,7 @@
      * 
      */
 
-    std::int32_t currentSignalSlot {INT32_MAX}; // ensure we start at 0 slot
-    std::int32_t signalBufferCapacity {};       // init'd for performance
+
     class SignalRingBuffer {
         /**
          * The SRB class will be used to allocate, deallocate the vector of signals.
@@ -42,8 +47,8 @@
         SignalRingBuffer (std::int32_t ringSize) 
         {
             #ifdef TESTING_MODE
-            // just reserve 75 srb slots
-                m_srb.reserve(75);
+            // just reserve 30000 srb slots
+                m_srb.reserve(30000);
             #else
                 m_srb.reserve(ringSize);
             #endif 
@@ -71,6 +76,19 @@
 
         std::int32_t getCurrentSignalSlot() { return currentSignalSlot; }
         signal::Signal getSlotRef(int slot) { return m_srb[currentSignalSlot]; }
+
+        /**
+         * @brief   Pseudo-allocatSignalSlot
+         * @details Put the following code into any routine that needs to request
+         * that a signal slot be allocated.
+         */
+        // if (currentSignalSlot >= signalBufferCapacity) {
+        //     currentSignalSlot = 0;
+        //     return 0;
+        // }
+        // else { return ++currentSignalSlot; }
+
+
         std::int32_t allocateSignalSlot()
         /**
          * @brief returns the next avaible srb slot
@@ -91,6 +109,19 @@
          * 
          * @throws  Nothing
          */
+
+         /**
+          * @brief This can be replaced!
+          * 
+          * @details    Allow outsiders who want to get a slot allocated to access the static
+          * currentSignalSlot and the signalBufferCapacity.
+          * The requesors make the same comparison as this member function but avoid the overhead
+          * of the function call and return, saving valuable processing cycles as signal handling
+          * is a major activity.
+          * 
+          * Connections are the heart of the logic; signals are the heart of the activity.
+          * 
+          */
         {
             if (currentSignalSlot < signalBufferCapacity) {
                 // this will be the most frequent path
@@ -102,9 +133,6 @@
                 return currentSignalSlot;
             }
         }
-
-        // make this public so all can access it
-        std::vector<signal::Signal> m_srb;
 
 
     };
