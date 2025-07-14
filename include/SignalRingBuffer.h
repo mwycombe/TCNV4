@@ -6,15 +6,13 @@
 #include <vector>
 #include <climits>
 
-/** \brief SignalRingBuffer
+/**
+ * @brief SignalRingBuffer
  *
- * \param size of buffer
- * \param
- * \return Signal clock
- * \return Signal size
- * \return slot number
- * \return int clock array origin address
- * \return float size array origin address
+ * @param size of buffer
+ * 
+ * 
+ * @return next available slot number
  *
  
  */
@@ -30,8 +28,8 @@
      * 
      */
 
-    static std::int32_t currentSignalSlot {INT32_MAX}; // ensure we start at 0 slot
-    static std::int32_t signalBufferCapacity {};     // init'd for performance
+    std::int32_t currentSignalSlot {INT32_MAX}; // ensure we start at 0 slot
+    std::int32_t signalBufferCapacity {};       // init'd for performance
     class SignalRingBuffer {
         /**
          * The SRB class will be used to allocate, deallocate the vector of signals.
@@ -45,16 +43,18 @@
         {
             #ifdef TESTING_MODE
             // just reserve 75 srb slots
-            m_srb.reserve(75);
+                m_srb.reserve(75);
             #else
-            m_srb.reserve(ringSize);
+                m_srb.reserve(ringSize);
             #endif 
-            signalBufferCapacity = m_srb.capacity();
-            // init m_srb with all empty signals
-            // regardless of size
-            // create an empty signal
 
-            signal::Signal emptySignal{ 1,1000,0}; // default values
+            signalBufferCapacity = m_srb.capacity();
+
+            // init m_srb with empty signals to allocate heap
+            // regardless of size
+            // create an empty signal with impossible clock value
+
+            signal::Signal emptySignal{ INT32_MAX,1000,0}; // default values
 
             for (int i = 0; i < m_srb.capacity(); ++i) {
                 #ifdef TESTING_MODE
@@ -103,9 +103,8 @@
             }
         }
 
-
-        private:
-            std::vector<signal::Signal> m_srb;
+        // make this public so all can access it
+        std::vector<signal::Signal> m_srb;
 
 
     };

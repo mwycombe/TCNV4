@@ -3,6 +3,7 @@
 #include <cstddef>
 #include <vector>
 #include "SignalRingBuffer.h"
+#include "Neuron.h"
 #include "Tcnconstants.h"
 #include "Connections.h"
 #include "Signal.h"
@@ -23,24 +24,25 @@
     window has elapsed.
 */
 
-using namespace std;
 using namespace tcnconstants;
 
-
+/**
+ * @brief Holder of neuron pool
+ * Neuron pool is a public vector allocated on the heap.
+ * For the sake of speed neurons can be accessed directly without using a getter/setter
+ * 
+ * @param   size of neuron pool
+ * 
+ * @return  next neuron slot for building neuron network
+ *          not used after network has been built
+ * 
+ */
 
 namespace neurons
 {
-
-
-    // this struct will be create in a vector on the heap
-    struct neuron {
-        std::vector
-
-    }
-    typedef vector<int> * v_i_ptr;  // signal queue vector pointers
-
-    class Neurons
-    {
+    std::int32_t currentNeuronSlot {INT32_MIN}; // forces start @ 0
+    std::int32_t neuronPoolCapacity {};
+    class Neurons {
         /**
          * The Neurons class is responsible for creating the pool of neurons which
          * is computed in the TCNConstants.h header.
@@ -49,76 +51,72 @@ namespace neurons
          * each connection to procure and generate and appropriate signal.
          */
         // make everything public for speed of access.
+        // public:
+        //     static int * refractoryEndOrigin;
+        //     static v_i_ptr * signalQueueOrigin; // vectors of enqueued signals
+        //     static v_i_ptr * dependentsOrigin;  // vectors of target neurons
+        //     static  int * necvOrigin;          // next event clock value from signal queue on Neuron
+        //     static vector<int>::const_iterator int_citer;
+        //     static  int signalClock;        // used to speed up signal scanning// make everything public for speed of access.
         public:
-            static int * refractoryEndOrigin;
-            static v_i_ptr * signalQueueOrigin; // vectors of enqueued signals
-            static v_i_ptr * dependentsOrigin;  // vectors or target neurons
-            static  int * necvOrigin;          // next event clock value from signal queue on Neuron
-            static vector<int>::const_iterator int_citer;
-            static  int signalClock;        // used to speed up signal scanning
-    class Neurons
-    {
-        // make everything public for speed of access.
-    public:
-        static int *refractoryEndOrigin;
-        static v_i_ptr *signalQueueOrigin; // vectors of enqueued signals
-        static v_i_ptr *dependentsOrigin;  // vectors of target neurons
-        static int *necvOrigin;            // next event clock value from signal queue on Neuron
-        static vector<int>::const_iterator int_citer;
-        static int signalClock; // used to speed up signal scanning
 
-            static int*       get_refractoryEndOrigin();
-            static v_i_ptr *  get_signalQueue_Origin();
-            static v_i_ptr *  get_dependentsOrigin();
-            static int      get_refractoryEnd(int);
-            static int      get_necv(int);
-            static void     set_necv(int);
-            static void     set_refractoryEnd(int, int);
-            static void     purge_signals(int);
-            static int      get_nextNeuronSlot();
-            static int      allocateNeurons(int v);
-            static void     add_dependent(int, int);
-            static void     enqueueIncomingSignal(int, int);
-            static void     deleteEmptySignalQueue(int);
-            static void     aggregate_queued_signals(int, int);
-            static void     notify_dependents(int, int);
-            static void     signal_connection(int, int);
-            static int      nextNeuronSlot;
-    //        static int      neuron_count;
-            static int      relative_aggregation_array[];
-            static int      absolute_aggregation_array[];
-            static int      window_reduction_factors[];
-            static int      provisioned_signal;
-            static int      conn_clock;
-            static short    conn_size;
+            Neurons (std::int32_t poolSize)
+            {
+                #ifdef TESTING_MODE
+                // just reserve 75 neurons for initial testing
+                    m_neuronPool.reserve(75);
+                #else
+                    m_neuronPool.reserve(poolSize);
+                #endif
 
-            /**
-             * No longer need to do this as TCNConstants are all inline constexpr - with a singular definition
-             * resovled by the linker
-             * 
-             */
+                neuronPoolCapacity = m_neuronPool.capacity();
 
-            // TCNConstants * tcn_params;
+                // init m_neuronPool with empty neurons to allocate heap
+                // regardless of the pool size, even if testing, we need 
+                // to push some values to trigger heap allocation.
 
-            Neurons (int);
+                // create an empty neuron - do NOT use a struct constructor 
+                // otherwise every neuron will bear the overhead.
+
+                // first create minimal signal queue and connection queue vectors
+                // use impossible values that will never be processed
+            
+                std::vector<signal::Signal> incoming;
+                incoming.reserve(1);
+                signal::Signal emptySignal{INT32_MAX,1000,0};
+                incoming.push_back(emptySignal);    // force vector allocation
+
+                std::vector<connection::Connection> outgoing;
+                outgoing.reserve(1);
+                connection::Connection emptyConnection 
+                {
+                    INT32_MAX, INT32_MAX,INT32_MAX,0,0
+                };
+                outgoing.push_back(emptyConnection);    // force vector allocation
+
+
+                neuron::Neuron emptyNeuron 
+                {
+                    incoming,        // length one vector
+                    outgoing,    // length one vector
+                    INT32_MAX,
+                    INT32_MAX 
+                };
+
+                for (int i = 0; i < m_neuronPool.capacity(); ++i) {
+                    m_neuronPool.push_back(emptyNeuron);
+                }
+            }
+
+
 
             ~Neurons()
             {
-                // free up dynamic TCNConstants
-                // delete tcn_params;
-                // tcn_params = nullptr;
-                            // clean up anything allocated, including dynamic vectors
-                delete [] refractoryEndOrigin;
-
-                for (int i=0; i < neuron_count; i++)
-                {
-                    if (*(signalQueueOrigin + i) != nullptr)
-                        delete  *(signalQueueOrigin + i);
-                }
-                delete [] signalQueueOrigin;
-                delete [] dependentsOrigin;
-
+                ; // allocated vector heap will be freed when they go out of scope.
             }
+
+            // make this public so all can access it
+            std::vector<neuron::Neuron> m_neuronPool;
     };
 
 } // end neurons namespace
