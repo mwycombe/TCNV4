@@ -17,6 +17,10 @@ extern std::vector<signal::Signal> m_srb;
 extern int32_t currentSignalSlot;
 extern int32_t signalBufferCapacity;
 
+extern std::vector<neuron::Neuron> m_neuronPool;
+extern int32_t currentNeuronSlot;
+extern int32_t neuronPoolCapacity;
+
 
 
 int main ()
@@ -48,6 +52,12 @@ int main ()
    neurons::Neurons neurons = neurons::Neurons(75);
    srb::SignalRingBuffer srb = srb::SignalRingBuffer(75);
 
+
+   std::cout << "Connections pool:= " << std::to_string(connectionPoolCapacity) << '\n';
+   std::cout << "Neuron pool: " << std::to_string(neuronPoolCapacity) << '\n';
+   std::cout << "SRB pool: " << std::to_string(signalBufferCapacity) << '\n';
+
+
    // connect the first connection to the first neuron
    // get ref to first connection
    // get ref to first neuron
@@ -55,10 +65,34 @@ int main ()
    // get first signal and poke connection
    // check if signal was delivered to neuron
 
-  int32_t cSlot = currentConnectionSlot;
-  int32_t nSlot = currentNeuronSlot;
 
-   std::cout << "End of oneconnection test..." << std::endl;
+  connection::Connection connRef;
+  neuron::Neuron neuronRef;
+  signal::Signal signalRef;
+
+
+
+  // pseudo slotAllocationRoutines
+  connRef = m_connPool[++currentConnectionSlot];
+  neuronRef = m_neuronPool[++currentNeuronSlot];
+
+  // SRB is different as it can wrap
+  
+  int32_t nextSignalSlot;
+
+  if (currentSignalSlot >= signalBufferCapacity) {
+    currentSignalSlot = 0;
+    nextSignalSlot = 0;
+  }
+  else { 
+    nextSignalSlot = ++currentSignalSlot; 
+  }
+  signalRef = m_srb[nextSignalSlot];
+
+  // all three elements are now addressed by a Ref from their respective pools
+
+
+  std::cout << "End of oneconnection test..." << std::endl;
 
   return 0;
 }

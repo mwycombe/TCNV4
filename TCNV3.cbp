@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes" ?>
+<CodeBlocks_project_file>
+	<FileVersion major="1" minor="6" />
+	<Project>
+		<Option title="TCNV3" />
+		<Option pch_mode="2" />
+		<Option compiler="gcc" />
+		<Build>
+			<Target title="Debug">
+				<Option output="bin/Debug/TCNV3" prefix_auto="1" extension_auto="1" />
+				<Option object_output="obj/Debug/" />
+				<Option type="1" />
+				<Option compiler="gcc" />
+				<Compiler>
+					<Add option="-g" />
+				</Compiler>
+			</Target>
+			<Target title="Release">
+				<Option output="bin/Release/TCNV3" prefix_auto="1" extension_auto="1" />
+				<Option object_output="obj/Release/" />
+				<Option type="1" />
+				<Option compiler="gcc" />
+				<Compiler>
+					<Add option="-O2" />
+				</Compiler>
+				<Linker>
+					<Add option="-s" />
+				</Linker>
+			</Target>
+		</Build>
+		<Compiler>
+			<Add option="-Wall" />
+			<Add option="-fexceptions" />
+		</Compiler>
+		<Unit filename="include/Connections.h" />
+		<Unit filename="include/LV1.h" />
+		<Unit filename="include/LV2.h" />
+		<Unit filename="include/LV4.h" />
+		<Unit filename="include/LVIT.h" />
+		<Unit filename="include/Neurons.h" />
+		<Unit filename="include/SignalRingBuffer.h" />
+		<Unit filename="include/SixPack.h" />
+		<Unit filename="include/Tcnconstants.h" />
+		<Unit filename="include/aTCN.h" />
+		<Unit filename="include/aTCNManager.h" />
+		<Unit filename="main.cpp" />
+		<Unit filename="src/Connections.cpp" />
+		<Unit filename="src/LV1.cpp" />
+		<Unit filename="src/LV2.cpp" />
+		<Unit filename="src/LV4.cpp" />
+		<Unit filename="src/LVIT.cpp" />
+		<Unit filename="src/Neurons.cpp" />
+		<Unit filename="src/SignalRingBuffer.cpp" />
+		<Unit filename="src/SixPack.cpp" />
+		<Unit filename="src/Tcnconstants.cpp" />
+		<Unit filename="src/aTCN.cpp" />
+		<Unit filename="src/aTCNManager.cpp" />
+		<Extensions>
+			<lib_finder disable_auto="1" />
+		</Extensions>
+	</Project>
+</CodeBlocks_project_file>

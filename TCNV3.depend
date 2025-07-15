@@ -1,0 +1,72 @@
+# depslib dependency file v1.0
+1609879962 source:c:\coding\c++\tcnv3\src\signalringbuffer.cpp
+	<iostream>
+	"SignalRingBuffer.h"
+
+1641682122 source:c:\coding\c++\tcnv3\src\atcn.cpp
+	"aTCN.h"
+	"Neurons.h"
+	"Connections.h"
+	"SignalRingBuffer.h"
+	"Tcnconstants.h"
+	"LVIT.h"
+	"LV4.h"
+	"LV2.h"
+	"LV1.h"
+
+1642725455 source:c:\coding\c++\tcnv3\src\atcnmanager.cpp
+	<iostream>
+	<vector>
+	<limits>
+	<cassert>
+	"aTCNManager.h"
+	"aTCN.h"
+
+1632715908 source:c:\coding\c++\tcnv3\src\lv1.cpp
+	"LV1.h"
+	"TCNConstants.h"
+	"SixPack.h"
+
+1584201820 source:c:\coding\c++\tcnv3\main.cpp
+	<iostream>
+
+1614573728 source:c:\coding\c++\tcnv3\src\connections.cpp
+	<iostream>
+	<vector>
+	"TCNConstants.h"
+	"Connections.h"
+
+1632715918 source:c:\coding\c++\tcnv3\src\lv2.cpp
+	"LV2.h"
+	"TCNConstants.h"
+	"SixPack.h"
+
+1632715933 source:c:\coding\c++\tcnv3\src\lv4.cpp
+	"LV4.h"
+	"TCNConstants.h"
+	"SixPack.h"
+
+1632715952 source:c:\coding\c++\tcnv3\src\lvit.cpp
+	"LVIT.h"
+	"TCNConstants.h"
+	"SixPack.h"
+
+1641878271 source:c:\coding\c++\tcnv3\src\neurons.cpp
+	"Neurons.h"
+	"TCNConstants.h"
+	"SignalRingBuffer.h"
+	"Connections.h"
+	<vector>
+
+1632715986 source:c:\coding\c++\tcnv3\src\sixpack.cpp
+	<iostream>
+	<cassert>
+	"TCNConstants.h"
+	"SixPack.h"
+
+1632716020 source:c:\coding\c++\tcnv3\src\tcnconstants.cpp
+	<iostream>
+	<vector>
+	<cassert>
+	"TCNConstants.h"
+

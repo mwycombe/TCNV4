@@ -2,7 +2,6 @@
 #define CONNECTIONS_H_INCLUDED
 #include <iostream>
 #include <vector>
-#include <queue>
 #include "TCNConstants.h"
 #include "Connection.h"
 #include "Neurons.h"
@@ -20,9 +19,9 @@ extern std::vector<neuron::Neuron> m_neuronPool;
 extern std::int32_t currentNeuronSlot; // forces start @ 0
 extern std::int32_t neuronPoolCapacity;
 
-std::int32_t currentSignalSlot{INT32_MAX};
-std::int32_t signalBufferCapacity{};
-std::vector<signal::Signal> m_srb{};
+extern std::int32_t currentSignalSlot;
+extern std::int32_t signalBufferCapacity;
+extern std::vector<signal::Signal> m_srb;
 
 
 namespace conns
@@ -34,6 +33,7 @@ namespace conns
      * to provide optimum speed.
      * Pseudo function definitions will be used to indicate the intent of the hand-crafted code.
      */
+
     /*  Connections:
         The connection object is associated with the signaling neuron.
         It records which neurons are dependent and retains the connection parameters
@@ -81,17 +81,23 @@ namespace conns
         // Class constructor
         Connections(std::int32_t connectionPoolSize)
         {
-
-            
-            
-            #ifdef TESTING_MODE
+           #ifdef TESTING_MODE
             m_connPool.reserve(75);
             #else
             m_connPool.reserve(connectionPoolSize);
             #endif
 
-        }  // how many connections to create
+            // now fill the vector with 'blank' connection entries
+            // none of the values are valid
 
+            connection::Connection blankConnection {
+                -1, -1, -1, -1, -1
+            };
+            for (int32_t i; i < connectionPoolCapacity; ++i){
+                m_connPool.push_back(blankConnection);
+            }
+
+        }
         // static int32_t     connection_count;                // number of connections created
         // static int     get_target_neuron(int);          // return numer of target neuron
         // static int     get_temporal_distance(int);      // return temporal distance
@@ -123,9 +129,7 @@ namespace conns
             // static int next_connection_slot;      // used to allocate connections slots during building of the
             //                                       // neuron connection networks
             // he signal size will be modified by STP and LTP and any other memory and enhancement actions
-
-
-            static int connection_count;                 // number of connections created
+            // static int connection_count;                 // number of connections created
 
             /**
              * @brief   Given that all pools and elements are public we should be able to avoid
@@ -134,60 +138,60 @@ namespace conns
              */
 
             // get the target neuron slot for the given connection
-            int32_t get_target_neuron(int32_t connectionSlot, int32_t neuronSlot)
-            {
-                return 0;   // return neuron target slot for the connection
-            }    
+            // int32_t get_target_neuron(int32_t connectionSlot, int32_t neuronSlot)
+            // {
+            //     return 0;   // return neuron target slot for the connection
+            // }    
 
-            // return the temporal clock distance for the connection slot
-            int32_t get_temporal_distance(int32_t connectionSlot)
-            {
-                return 0;// return temporal distance
-            }    
+            // // return the temporal clock distance for the connection slot
+            // int32_t get_temporal_distance(int32_t connectionSlot)
+            // {
+            //     return 0;// return temporal distance
+            // }    
 
-            int16_t get_signal_size(int32_t connectionSlot)
-            {
-                return 0;   // return the weight for the current connection
-            }             
-            int16_t get_stp_accumulator(int32_t connnectionSlot)
-            {
-                return 0;   
-            };       
-            int16_t get_ltp_accumulator(int32_t connectionSlot)
-            {
-                return 0;   // return ltp accumulator value
-            };       
+            // int16_t get_signal_size(int32_t connectionSlot)
+            // {
+            //     return 0;   // return the weight for the current connection
+            // }             
+            // int16_t get_stp_accumulator(int32_t connnectionSlot)
+            // {
+            //     return 0;   
+            // };       
+            // int16_t get_ltp_accumulator(int32_t connectionSlot)
+            // {
+            //     return 0;   // return ltp accumulator value
+            // };       
 
-            // set the target neuron slot for the connection slot
-            void set_target_neuron(int32_t connectionSlot, int32_t neuronslot)
-            {
-                ;    // set target neuron number for connection
+            // // set the target neuron slot for the connection slot
+            // void set_target_neuron(int32_t connectionSlot, int32_t neuronslot)
+            // {
+            //     ;    // set target neuron number for connection
 
-            }
-            void set_temporal_distance(int32_t connectionSlot, int32_t temporalDistanc)
-            {
-                ;   // set temporal distance to target neuron for the connection
-            }
-            void set_signal_size(int32_t signalSlot, int16_t )
-            {
-                ;   // set the signal weigth into the signal 
-            }     // set the size for the signal
-            void set_stp_accumulator(int32_t connectionSlot, int16_t stpWeight)
-            {
+            // }
+            // void set_temporal_distance(int32_t connectionSlot, int32_t temporalDistanc)
+            // {
+            //     ;   // set temporal distance to target neuron for the connection
+            // }
+            // void set_signal_size(int32_t signalSlot, int16_t )
+            // {
+            //     ;   // set the signal weigth into the signal 
+            // }     // set the size for the signal
+            // void set_stp_accumulator(int32_t connectionSlot, int16_t stpWeight)
+            // {
         
-            } // set the stp accumulator value
-            void set_ltp_accumulator(int32_t connectionslot, int16_t ltpWeight)
-            {
-                ;
-            } 
-            void apply_stp(int32_t connectionSlot, int16_t stpValue)
-            {
-                ;   // set stp result value in connection
-            }
-            void apply_ltp(int32_t connectionSlot, int16_t ltpValue)
-            {
-                ;   // set ltp result value in connection
-            }
+            // } // set the stp accumulator value
+            // void set_ltp_accumulator(int32_t connectionslot, int16_t ltpWeight)
+            // {
+            //     ;
+            // } 
+            // void apply_stp(int32_t connectionSlot, int16_t stpValue)
+            // {
+            //     ;   // set stp result value in connection
+            // }
+            // void apply_ltp(int32_t connectionSlot, int16_t ltpValue)
+            // {
+            //     ;   // set ltp result value in connection
+            // }
         
             ~Connections()
             {
