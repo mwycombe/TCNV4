@@ -7,6 +7,7 @@
 #include "Signal.h"
 #include "SignalRingBuffer.h"
 #include "Neurons.h"
+#include "Neuron.h"
 
 extern std::vector<connection::Connection> m_connPool;
 extern int32_t currentConnectionSlot;

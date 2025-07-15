@@ -11,6 +11,7 @@
 std::vector<neuron::Neuron> m_neuronPool{}; // allocated by constructor
 std::int32_t currentNeuronSlot{-1};         // forces start @ 0
 std::int32_t neuronPoolCapacity{};          // filled in by constructor
+
 namespace neurons
 {
 

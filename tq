@@ -1,0 +1,114 @@
+* [33mcommit f0e6b43717f72982474400123b4f78ce25940e8e[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m, [m[1;31morigin/main[m[33m)[m
+[31m|[m Author: Michael Wycombe <michael.wycombe@gmail.com>
+[31m|[m Date:   Mon Jul 14 20:49:59 2025 -0700
+[31m|[m 
+[31m|[m     Working on connection single signal test to single neuron
+[31m|[m 
+* [33mcommit d8143a8b037bb85e420941912fd40c529c7ed76f[m
+[31m|[m Author: Michael Wycombe <michael.wycombe@gmail.com>
+[31m|[m Date:   Mon Jul 14 11:57:16 2025 -0700
+[31m|[m 
+[31m|[m     srbwrape timing; start oneconnection
+[31m|[m 
+* [33mcommit fbea27385aa5c6d1d03883adb56e90f559f2f2c2[m
+[31m|[m Author: Michael Wycombe <michael.wycombe@gmail.com>
+[31m|[m Date:   Sun Jul 13 21:49:58 2025 -0700
+[31m|[m 
+[31m|[m     working on oneconnection
+[31m|[m 
+* [33mcommit 376b7a548deda82bce68722b90a50d8ded22583d[m
+[31m|[m Author: Michael Wycombe <Michael.wycombe@gmail.com>
+[31m|[m Date:   Sat Jul 12 22:19:04 2025 -0700
+[31m|[m 
+[31m|[m     update connections.h
+[31m|[m 
+* [33mcommit 239a3f797864e59c2ee3e9bdacd4ed7a158ad983[m
+[31m|[m Author: Michael Wycombe <michael.wycombe@gmail.com>
+[31m|[m Date:   Sat Jul 12 20:17:41 2025 -0700
+[31m|[m 
+[31m|[m     SBwraptest update
+[31m|[m 
+* [33mcommit e795c2c13403b396c2061af26eb791158a283ec3[m
+[31m|[m Author: Michael Wycombe <michael.wycombe@gmail.com>
+[31m|[m Date:   Sat Jul 12 20:16:24 2025 -0700
+[31m|[m 
+[31m|[m     Update Connection.h
+[31m|[m 
+* [33mcommit fdc966f10274dae9d3d40a2ada2db9d1033286a9[m
+[31m|[m Author: Michael Wycombe <michael.wycombe@gmail.com>
+[31m|[m Date:   Sat Jul 12 20:15:15 2025 -0700
+[31m|[m 
+[31m|[m     Add srbwraptest
+[31m|[m   
+*   [33mcommit cdbfa5896f69556fddc22041b0618b095815a4f1[m
+[32m|[m[33m\[m  Merge: 0d5e475 7f2d98b
+[32m|[m [33m|[m Author: Michael Wycombe <michael.wycombe@gmail.com>
+[32m|[m [33m|[m Date:   Sat Jul 12 20:13:16 2025 -0700
+[32m|[m [33m|[m 
+[32m|[m [33m|[m     Merge branch 'main' of github.com:mwycombe/TCNV4
+[32m|[m [33m|[m 
+[32m|[m * [33mcommit 7f2d98b2128c2f3d09d3b767f9934ffab1d36760[m
+[32m|[m [33m|[m Author: Michael Wycombe <49916944+mwycombe@users.noreply.github.com>
+[32m|[m [33m|[m Date:   Sat Jul 12 17:25:41 2025 -0700
+[32m|[m [33m|[m 
+[32m|[m [33m|[m     Update README.md
+[32m|[m [33m|[m 
+* [33m|[m [33mcommit 0d5e47513e0e54d9e0b66d2da8249fd1ad7bd130[m
+[33m|[m[33m/[m  Author: Michael Wycombe <michael.wycombe@gmail.com>
+[33m|[m   Date:   Sat Jul 12 20:13:06 2025 -0700
+[33m|[m   
+[33m|[m       working on oneconnectiontest
+[33m|[m 
+* [33mcommit 69ef97b555b514e942348398da2604c1b7a56a17[m
+[33m|[m Author: Michael Wycombe <michael.wycombe@gmail.com>
+[33m|[m Date:   Sat Jul 12 17:20:28 2025 -0700
+[33m|[m 
+[33m|[m     srbwrap testing concluded with logger active
+[33m|[m 
+* [33mcommit f4600a37fa5d5af16b0654d23f2f8a88f5641607[m
+[33m|[m Author: Michael Wycombe <michael.wycombe@gmail.com>
+[33m|[m Date:   Sat Jul 12 12:01:06 2025 -0700
+[33m|[m 
+[33m|[m     Working Logger.helloworld
+[33m|[m 
+* [33mcommit ac4d5caa8d27392ec769a419e292eda59420b927[m
+[33m|[m Author: Michael Wycombe <michael.wycombe@gmail.com>
+[33m|[m Date:   Sat Jul 12 08:35:51 2025 -0700
+[33m|[m 
+[33m|[m     Change logger class
+[33m|[m 
+* [33mcommit d2352f694e0f964f3c4b2f7bc65cc0eb043e20f7[m
+[33m|[m Author: Michael Wycombe <michael.wycombe@gmail.com>
+[33m|[m Date:   Fri Jul 11 20:20:19 2025 -0700
+[33m|[m 
+[33m|[m     Loggerclass.cpp as reference code
+[33m|[m 
+* [33mcommit d12ef3b6de6705d66877d555f890c294b68f67cb[m
+[33m|[m Author: Michael Wycombe <michael.wycombe@gmail.com>
+[33m|[m Date:   Fri Jul 11 20:11:38 2025 -0700
+[33m|[m 
+[33m|[m     readme update
+[33m|[m 
+* [33mcommit d7ec3c0a63b4c411ce947d416d2ff6e10a84a7b4[m
+[33m|[m Author: Michael Wycombe <michael.wycombe@gmail.com>
+[33m|[m Date:   Fri Jul 11 20:11:20 2025 -0700
+[33m|[m 
+[33m|[m     loggertest
+[33m|[m 
+* [33mcommit 382c31759458e3ea7eb4c81c19746b4243620988[m
+[33m|[m Author: Michael Wycombe <49916944+mwycombe@users.noreply.github.com>
+[33m|[m Date:   Fri Jul 11 17:30:24 2025 -0700
+[33m|[m 
+[33m|[m     Update README.md
+[33m|[m 
+* [33mcommit 188200ec1a7befd9840679a8bf9044020a10da73[m
+[33m|[m Author: Michael Wycombe <49916944+mwycombe@users.noreply.github.com>
+[33m|[m Date:   Fri Jul 11 10:20:57 2025 -0700
+[33m|[m 
+[33m|[m     Create README.md
+[33m|[m 
+* [33mcommit accc81ddb4866f4a2c81c548b772a128c68ac8f8[m
+  Author: Michael Wycombe <michael.wycombe@gmail.com>
+  Date:   Fri Jul 11 09:58:37 2025 -0700
+  
+      TCNV4 original commet July 11, 2025
