@@ -34,22 +34,22 @@ namespace tcnconstants
 
     // none of these can be made global - forbidden for constexpr which are compile-time constants */
 
-    inline constexpr int IT{5};         // this is the fan-out specification between layers
-    inline constexpr int V4{IT * IT};
-    inline constexpr int V2{V4 * IT};
-    inline constexpr int V1{V2 * IT};
-    inline constexpr int L1_width{6};
-    inline constexpr int L1_depth{2};
-    inline constexpr int Lx_width{6};
-    inline constexpr int Lx_depth{4};
-    inline constexpr int sixpack_size{L1_width * L1_depth + 5*(Lx_width * Lx_depth)};
-    inline constexpr int neuron_count{sixpack_size * (IT + V4 + V2 + V1)};
+    inline constexpr int32_t IT{5};         // this is the fan-out specification between layers
+    inline constexpr int32_t V4{IT * IT};
+    inline constexpr int32_t V2{V4 * IT};
+    inline constexpr int32_t V1{V2 * IT};
+    inline constexpr int32_t L1_width{6};
+    inline constexpr int32_t L1_depth{2};
+    inline constexpr int32_t Lx_width{6};
+    inline constexpr int32_t Lx_depth{4};
+    inline constexpr int32_t sixpack_size{L1_width * L1_depth + 5*(Lx_width * Lx_depth)};
+    inline constexpr int32_t neuron_count{sixpack_size * (IT + V4 + V2 + V1)};
 
     // the following are guesstimates for the size of the TCN
-    inline constexpr int neuron_signal_ratio{10};                                  // average count of signals/neuron
-    inline constexpr int signal_count{neuron_count * neuron_signal_ratio};         // average of 10 per neuron
-    inline constexpr int neuron_connection_ratio{30};                              // average count of connections per neuron
-    inline constexpr int connection_count{neuron_count * neuron_connection_ratio}; // thirty connections per neuron
+    inline constexpr int32_t neuron_signal_ratio{10};                                  // average count of signals/neuron
+    inline constexpr int32_t signal_count{neuron_count * neuron_signal_ratio};         // average of 10 per neuron
+    inline constexpr int32_t neuron_connection_ratio{30};                              // average count of connections per neuron
+    inline constexpr int32_t connection_count{neuron_count * neuron_connection_ratio}; // thirty connections per neuron
 
     // density and inhibition ratios
     inline constexpr float VIT_density{0.3};
@@ -97,67 +97,50 @@ namespace tcnconstants
      */
 
     /*
+    [Neuron section]
+    */
+
+    inline constexpr int32_t aggregatorWidth{2};     // period when signals must arrive to be counted
+    inline constexpr int32_t refractoryWidth{5};     // refractory period width
+    inline constexpr int32_t purgeThreshold{10};     // don't purge signals below purgeThreshold - perf.
+
+    inline constexpr int16_t cascadeThreshold{12000}; // value to cause neuron to cascade aka 12 mv.
+    inline constexpr int32_t msecs_refractory_period{5};     // 5 msecs; 1 spike + 4 recovery
+    inline constexpr int32_t msecs_aggregation_window{5};    // 5 msec to aggregate incoming signals
+    inline constexpr int32_t aggregation_decay_factor{2};   // 1/32 after 5 msecs
+    inline constexpr int32_t ticks_per_msec{1};     // millisec clock rate
+                                                    // all msec measurements will use this scaling factor
+
+    /*
     [ STP section ]
     */
-    inline constexpr   short base_signal_size {10000};   // 10000 to one - 3x fits in a short
-    inline constexpr   short stp_signal_limit {2 * base_signal_size};     // limited to doubling
-    inline constexpr   short stp_tetanic_pulse_size {10};     // tetanic pulse size
+    inline constexpr   int16_t base_signal_size {1000};       // 1000 to one - 8x fits in a int16_t for ltp
+    inline constexpr   int16_t aggregation_decay_factor {2}; // 1/2 @ 1 msec then 1/4 @ 2 msec then done
+    inline constexpr   int16_t stp_signal_limit {2 * base_signal_size};     // limited to doubling
+    inline constexpr   int16_t stp_tetanic_pulse_size {10};     // tetanic pulse size
     // compute how many signal boosts we get per tetanic pules spike
-    inline constexpr   short stp_units_per_tetanic_pulse {(stp_signal_limit - base_signal_size)/stp_tetanic_pulse_size};
-    inline constexpr   int stp_decay_time {20 * 60 * 1000};   // 20 minutes in millisecs
+    inline constexpr   int16_t stp_units_per_tetanic_pulse {(stp_signal_limit - base_signal_size)/stp_tetanic_pulse_size};
+    inline constexpr   int32_t stp_decay_time {20 * 60 * 1000};   // 20 minutes in millisecs
     // each decay interval reduces stp value by one unit - approx 120 msecs
-    inline constexpr   short stp_unit_decay_interval {stp_decay_time / (stp_signal_limit - base_signal_size)};
+    inline constexpr   int16_t stp_unit_decay_interval {stp_decay_time / (stp_signal_limit - base_signal_size)};
 
     /*
     [ LTP section [
     */
-    inline constexpr   short ltp_signal_limit {3 * base_signal_size};  // limited to tripling
-    inline constexpr   int ltp_decay_time {10 * 60 * 60 * 1000}; // 10 hours in millisecs
+    inline constexpr   int16_t ltp_signal_limit {8 * base_signal_size};  // limited to octupling
+    inline constexpr   int32_t ltp_decay_time {10 * 60 * 60 * 1000};    // 10 hours in millisecs
 
     // each decay interval reduces ltp value by one unit - 1800 msecs
-    inline constexpr   short ltp_unit_decay_interval {ltp_decay_time / (ltp_signal_limit - base_signal_size)};
-
-    inline constexpr int msecs_refractory_period{5};     // 5 msecs; 1 spike + 4 recovery
-    inline constexpr int msecs_aggregation_window{2};    // 2 msec to aggregate incoming signals
-
-    inline constexpr int ticks_per_msec{1};     // millisec clock rate
-                                                // all msec measurements will use this scaling factor
-
-    inline constexpr short cascade_threshold{12000};    // neuron aggreagated signal size to cause cascade
-
-/**
- * Removed as inline constexpr provides the required functionality.
- */
-
-// class TCNConstants
-// {
-//     public:
+    inline constexpr   int16_t ltp_unit_decay_interval {ltp_decay_time / (ltp_signal_limit - base_signal_size)};
 
 
-//     TCNConstants ()
-//     {
-//         arrayOfTCNs[tcn_IT]   = IT;
-//         arrayOfTCNs[tcn_V4]   = V4;
-//         arrayOfTCNs[tcn_V2]   = V2;
-//         arrayOfTCNs[tcn_V1]   = V1;
-//         arrayOfTCNs[sp_L1_w]  = L1_width;
-//         arrayOfTCNs[sp_L1_d]  = L1_depth;
-//         arrayOfTCNs[sp_Lx_w]  = Lx_width;
-//         arrayOfTCNs[sp_Lx_d]  = Lx_depth;
-//         arrayOfTCNs[sp_size]  = sixpack_size;
-//         arrayOfTCNs[tcn_neurons]   = neuron_count;
-//         arrayOfTCNs[tcn_sig_ratio]   = neuron_signal_ratio;
-//         arrayOfTCNs[tcn_signals]   = signal_count;
-//         arrayOfTCNs[tcn_conn_ratio]   = neuron_connection_ratio;
-//         arrayOfTCNs[tcn_connections]   = connection_count;
+ 
 
-//     }
-    // constants have internal linkage by default
-    // Jan 30, 2021 Add constants for SixPack 2D network sizing
-    // Fan out is set to 5
+    class TCNConstants
+    {
+        public:
 
-
-
-// };
+        // rely on default constructor
+    };
 }   // end of tcnconstants namespace
 #endif // TCNCONSTANTS_H_INCLUDED

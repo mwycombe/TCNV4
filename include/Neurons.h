@@ -8,10 +8,15 @@
 #include "Connections.h"
 #include "Signal.h"
 
+// definitions are global
+std::vector<neuron::Neuron> m_neuronPool{}; // allocated by constructor
+std::int32_t currentNeuronSlot{-1};         // forces start @ 0
+std::int32_t neuronPoolCapacity{};          // filled in by constructor
 
-extern std::vector<neuron::Neuron> m_neuronPool;
-extern std::int32_t currentNeuronSlot;              // forces start @ 0
-extern std::int32_t neuronPoolCapacity;
+// external globlals
+extern int32_t masterClock;
+
+int32_t cascadeAccumulator {0};             // used to accumulate effective neuron signal.
 
 /** POP
     All neuron references exchanged with outside classes are done using
@@ -44,6 +49,9 @@ extern std::int32_t neuronPoolCapacity;
     the same clock time.
     And the consequence of this ability to scan in parallel means that the network can be distributed across multiple
     cooperating computers, each with their own portion of the network, all working using the same clock time.
+
+* July 2025: Cannot create vector of refs - have to use pointers to avoid making
+* copies of neurons into the vector.
 */
 
 
@@ -67,6 +75,7 @@ extern std::int32_t neuronPoolCapacity;
 namespace neurons
 {
     class Neurons {
+;
         /**
          * The Neurons class is responsible for creating the pool of neurons which
          * size is computed in the TCNConstants.h header.
@@ -82,63 +91,137 @@ namespace neurons
         //     static  int32_t signalClock;        // used to speed up signal scanning// make everything public for speed of access.
         public:
 
-        Neurons(int32_t poolSize)
-        {
+            Neurons(int32_t poolSize)
+            {
+                #ifdef TESTING_MODE
+                // just reserve 75 neurons for initial testing
+                    m_neuronPool.reserve(75);
+                #else
+                    m_neuronPool.reserve(poolSize);
+                #endif
 
-            #ifdef TESTING_MODE
-            // just reserve 75 neurons for initial testing
-                m_neuronPool.reserve(75);
-            #else
-                m_neuronPool.reserve(poolSize);
-            #endif
+                neuronPoolCapacity = m_neuronPool.capacity();
 
-            neuronPoolCapacity = m_neuronPool.capacity();
+                // init m_neuronPool with empty neurons to allocate heap
+                // regardless of the pool size, even if testing, we need 
+                // to push some values to trigger heap allocation.
 
-            // init m_neuronPool with empty neurons to allocate heap
-            // regardless of the pool size, even if testing, we need 
-            // to push some values to trigger heap allocation.
+                // create an empty neuron - do NOT use a struct constructor 
+                // otherwise every neuron will bear the overhead.
 
-            // create an empty neuron - do NOT use a struct constructor 
-            // otherwise every neuron will bear the overhead.
+                // first create minimal signal queue and connection queue vectors
+                // use impossible values that will never be processed
+            
+                std::vector<signal::Signal*> incoming;
+                incoming.reserve(1);
+                signal::Signal emptySignal{INT32_MAX,1000,0};
+                incoming.push_back(&emptySignal);    // force vector allocation with a ptr
 
-            // first create minimal signal queue and connection queue vectors
-            // use impossible values that will never be processed
+                std::vector<connection::Connection*> outgoing;
+                outgoing.reserve(1);
+                connection::Connection emptyConnection 
+                {
+                    INT32_MAX, INT32_MAX,INT32_MAX,0,0
+                };
+                outgoing.push_back(&emptyConnection);    // force vector allocation wih a ptr
+                int32_t refractoryEnd = INT32_MIN;
+
+                neuron::Neuron emptyNeuron 
+                {
+                    incoming,       // length one vector
+                    outgoing,       // length one vector
+                    refractoryEnd   // refractory end is now - neuron will process and enqueue
+                                    // set to some future clock when neuron cascades
+                };
+
+                for (int i = 0; i < m_neuronPool.capacity(); ++i) {
+                    m_neuronPool.push_back(emptyNeuron);
+                }
+            }
         
-            std::vector<signal::Signal> incoming;
-            incoming.reserve(1);
-            signal::Signal emptySignal{INT32_MAX,1000,0};
-            incoming.push_back(emptySignal);    // force vector allocation
-
-            std::vector<connection::Connection> outgoing;
-            outgoing.reserve(1);
-            connection::Connection emptyConnection 
+            ~Neurons()
             {
-                INT32_MAX, INT32_MAX,INT32_MAX,0,0
-            };
-            outgoing.push_back(emptyConnection);    // force vector allocation
+                ; // allocated vector heap will be freed when they go out of scope.
+            }
 
-
-            neuron::Neuron emptyNeuron 
+            void printNeuron(neuron::Neuron& neuronRef)
             {
-                incoming,        // length one vector
-                outgoing,    // length one vector
-                INT32_MAX,
-                INT32_MAX 
-            };
+                std::cout << "Neuron: incomingSignals:= " 
+                        << std::to_string(neuronRef.incomingSignals.capacity())
+                        << std::endl;
+                std::cout << "outgoingSignals:= " << std::to_string(neuronRef.outgoingSignals.capacity())
+                            << std::endl;
+                std::cout << "refractoryEnd:= " << std::to_string(neuronRef.refractoryEnd)
+                            << std::endl;
+            }
 
-            for (int i = 0; i < m_neuronPool.capacity(); ++i) {
-                m_neuronPool.push_back(emptyNeuron);
+        void scanNeuronsForSignals()
+        {
+        // now can scan the neuron pool looing for any valid signals
+        for (neuron::Neuron nRef : m_neuronPool)
+            {
+            //  nRef will be set to a ref to every neuron in the pool
+            //  conditions to bother with a neuron looking for work:
+            //  Not refractory
+            //  Entries on the incomingSignals queue
+            //    Reasons to skip a neuron:
+            //    incomingSignals isEmpty OR 
+            //    incomingSignals length(1) AND firstSignal actionTime is INT32_MAX
+            //  
+            //  First implementation will not bother with STP and LTP - just moving signals
+            //  and testing for cascading.
+            //  
+            //  
+                if ( masterClock > nRef.refractoryEnd )
+                {
+                    if ( !(nRef.incomingSignals.empty()) ||
+                            ( nRef.incomingSignals.size() == 1 && 
+                                nRef.incomingSignals[0]->actionTime == INT32_MAX)  )
+                    {
+                        ;   // skip the neuron
+                    }
+                    else
+                    {
+                        // step through the incoming signals and broadcast them
+                        for (signal::Signal* sRef : nRef.incomingSignals)
+                        {
+                            // just use the simple signal size for now - without  stp/ltp
+                            // we aggregate existing prior signals for aggretation window width
+                            // have to scan the complet signal queue as they are not sorted by time of action
+
+
+                        }
+                    }
+                }
             }
         }
-        
-        ~Neurons()
-        {
-            ; // allocated vector heap will be freed when they go out of scope.
-        }
 
+        /**
+         * @brief   Purge old signals by dropping their reference from the incomingSignals vector. 
+         * They are just dropped and left in the SRB to be reused by someone else.
+         * 
+         * @details Purging is a relatively expensive operation as the vector is shifted potentially
+         * multiple times. We only purge if the number of stale signals > purgeThreshold but are careful
+         * to leave in queue any signals that might contribute to aggregate window.
+         * The only reason to purge is if the incomingSignal queue gets bloated with old signals. When the 
+         * SRB (SignalRingBuffer) wraps, unpurged signals will have the old signal information in them inluding the owner. 
+         * It's important that when neurons process the incomingSignal queue they make sure they are the owner
+         * of the signal as really old signals that didn't get purged might have been reused after an SRB wrap.
+         * 
+         * @cond When to purge? If the incomingSignal vector get's larger than the purgeThreshold and the 
+         * signals are older than (now - aggretationThreshold) - which is the maximum time aggregation of an
+         * incoming signal can reach back in time to combine signals.
+         * The only reason to purge is to save memory in the incomingSignals ref queue. SRB ownership and SRB
+         * wrap takes care of reusing the actual signals and neuron signal processing ignores and potentially
+         * purges older signals. Otherwise, old signal refs just stay fallow in their respective neuron
+         * incomingSignal queues - and they are just refs, not the actual signals themselves, which remain in 
+         * the SRB. 
+         * 
+         */
+
+        
         private:
-            int32_t aggregatorWidth{2};     // period when signals must arrive to be counted
-            int32_t refractoryWidth{5};     // refractory period width
+     // after being scanned purge signals if > purgeThreshold
     };
 
 } // end neurons namespace

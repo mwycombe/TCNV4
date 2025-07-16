@@ -23,9 +23,12 @@ extern std::int32_t currentSignalSlot;
 extern std::int32_t signalBufferCapacity;
 extern std::vector<signal::Signal> m_srb;
 
-
+namespace tconst = tcnconstants;
 namespace conns
 {
+    signal::Signal signalRef;
+    int32_t targetNeuronId; // used when enqueueing new signals
+    int32_t nodeSignaled;   // used for tracing which nodes get a connection signal
     /**
      * 
      * @brief   Wherever possible all access and update functions for the connections
@@ -65,15 +68,24 @@ namespace conns
         NOTE: Because connection objects are so numerous they must be allocated on the heap.
         Otherwise they will overrun the stack.
 
+    * July 2025: Cannot create vector of refs - have to use pointers to avoid making
+    * copies of connections into the vector.
+
     */
+
+    // define some class level variables for reuse when generating signals
+    // avoids local scope build and destroy
+
+
     class Connections
     {
-
+        
     public:
         // static short   *stp_accumulator_origin;        //stp accumulated level
         // static short   *ltp_accumulator_origin;        //ltp accumulated level
         // static int     *last_signal_clock_origin;      //used to determine how much STP & LTP decay has occurred
         // static int      next_connection_slot;          // used to allocate connections slots during
+        int32_t nextSignalSlot;             // not a member variable
 
         // during building for the network
         // The signal size will be modified by STP and LTP and any other memory and enhancement actions
@@ -87,13 +99,15 @@ namespace conns
             m_connPool.reserve(connectionPoolSize);
             #endif
 
+            connectionPoolCapacity = m_connPool.capacity();
+
             // now fill the vector with 'blank' connection entries
             // none of the values are valid
 
             connection::Connection blankConnection {
                 -1, -1, -1, -1, -1
             };
-            for (int32_t i; i < connectionPoolCapacity; ++i){
+            for (int i = 0; i < connectionPoolCapacity; ++i){
                 m_connPool.push_back(blankConnection);
             }
 
@@ -120,6 +134,116 @@ namespace conns
 
 
         public:
+
+            void printConnection (connection::Connection &connRef)
+            {
+                std::cout << "Connection: Neuron:= " << std::to_string(connRef.targetNeuronSlot);
+                std::cout << " TemporalDistance:= " << std::to_string(connRef.temporalDistanceToTarget) << std::endl;
+                std::cout << "STP Weight:= " << std::to_string(connRef.stpWeight);
+                std::cout << " LTP Weight:= " << std::to_string(connRef.ltpWeight) << std::endl;
+
+            }
+
+            int32_t generateOutGoingSignals(int32_t neuronId) 
+            {
+                /**
+                 * @brief step through the outgoing signals for the specified neuron
+                 * and generate a signal for every valid connection
+                 * 
+                 * @param   slot number for neuron to generate signals for
+                 * 
+                 * @return  slot number we are processing for tracking
+                 * 
+                 * @details For every connection found in the outgoingSignals for neuonId
+                 * a signal is generated using the parameter found in the connection object.
+                 * 
+                 * The only neurons that are called to generate signals are those that have 
+                 * cascaded as indicated by the refractory end being set to a future clock.
+                 * 
+                 * All other neurons have no signals to be created.
+                 * 
+                 * The caller is responsible for only requesting signal generation for 
+                 * qualifying neurons.
+                 * 
+                 */
+                // 
+                // Loop through all of the connections for a neuron and generate and
+                // enqueue a signal to the target neuron for each of the connections.
+                // There will be as many signals generate as there are valid connections
+                // in the outgoingSignals queue.
+                for (connection::Connection *ptr : m_neuronPool[neuronId].outgoingSignals)
+                {
+                    if (ptr->targetNeuronSlot >= 0)
+                    {
+                        // now check if target is refractory - ergo accept no signal for refractory period
+                        if ( ptr->temporalDistanceToTarget >
+                            m_neuronPool[ptr->targetNeuronSlot].refractoryEnd )      
+                        {
+                            // only generate a signal if connection clock is beyond refractory end
+                            // otherwise no point in generating a signal
+                            nodeSignaled = generateASignal(ptr);
+                        }
+                    }
+            
+                    // if (connectionIsNotFiller(ptr))
+                    // {
+                    //     generateASignal(ptr);
+                    // }
+                }
+                return neuronId;
+            }
+
+            bool connectionIsNotFiller(connection::Connection *ptr)
+            {
+                // never called; used as example of required test
+                // make sure we don't process a filler connection left over from constructor
+                // where targets were init'd to -1
+                return ptr->targetNeuronSlot >= 0;
+            }
+
+            int32_t generateASignal(connection::Connection *ptr)
+            {
+            /**
+             * @brief For each valid connection, generate a signal using the connection
+             * parameters and return the slot number of the targetted neuron - for debugging
+             * 
+             * @param   ptr to the connection retrieved from the neuron's outgoingSignals vector
+             * that defines the connection which will be used to generate the signal and enqueued
+             * to the target neuron's incomingSignals queue.
+             * 
+             * @details first allocate a signal slot; then fill it's values; then enqueue to target
+             * neuron incomingSignals queue vector
+             * 
+             * @return slot number of the target neuron - used for tracing
+             * 
+             */
+                // SRB is different as it can wrap  
+                if (currentSignalSlot >= signalBufferCapacity) {
+                    currentSignalSlot = 0;
+                    nextSignalSlot = 0;
+                }
+                else { 
+                    nextSignalSlot = ++currentSignalSlot; 
+                }
+
+                // srb is a vector of signal::Signal structs - returns ref to the struct
+                signalRef = m_srb[nextSignalSlot];
+                
+                // fill in the signal values before enqueueing to the target
+                signalRef.actionTime = ptr->temporalDistanceToTarget;   // fixed distance
+                signalRef.amplitude = ptr->stpWeight + ptr->ltpWeight;  // moderated amplitudes
+                signalRef.owner = ptr->targetNeuronSlot;                // target is the signal owner
+                
+                // targetNeuronId = ptr->targetNeuronSlot; // this is where to enqueue the signal
+                // m_neuronPool[targetNeuronId].incomingSignals.push_back(&signalRef);
+                // skip the extra assignment
+                // incomingSignals is a vector of pointers to Signal structs
+                
+                m_neuronPool[ptr->targetNeuronSlot].incomingSignals.push_back(&signalRef);
+
+
+                return ptr->targetNeuronSlot;
+            }
             // static int *target_neurons_origin;    // 32 bit pointer to the target
             // static int *temporal_distance_origin; // relative clock distance to target
             // static short *signal_size_origin;     // current size of signal for this connection/synapse - base is 1000
@@ -168,7 +292,7 @@ namespace conns
             //     ;    // set target neuron number for connection
 
             // }
-            // void set_temporal_distance(int32_t connectionSlot, int32_t temporalDistanc)
+            // void set_temporal_distance(int32_t connectionSlot, int32_t temporalDistance)
             // {
             //     ;   // set temporal distance to target neuron for the connection
             // }

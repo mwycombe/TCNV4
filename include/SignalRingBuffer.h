@@ -25,7 +25,7 @@
 
 std::int32_t currentSignalSlot{INT32_MAX};
 std::int32_t signalBufferCapacity{};
-std::vector<signal::Signal> m_srb{};
+std::vector<signal::Signal> m_srb{};       // this remains a vector of the actual signals
 
  namespace srb
  {
@@ -37,9 +37,10 @@ std::vector<signal::Signal> m_srb{};
 
     class SignalRingBuffer {
         /**
-         * The SRB class will be used to allocate, deallocate the vector of signals.
+         * @brief The SRB class will be used to allocate, deallocate the vector of signals.
          * SRB also tracks where the next slot is for dispensing a usable signal slot.
          * The requestor for a signal is responsible for initializing the signal fields.
+         * 
          */
         public:
 
@@ -59,7 +60,7 @@ std::vector<signal::Signal> m_srb{};
             // regardless of size
             // create an empty signal with impossible clock value
 
-            signal::Signal emptySignal{ INT32_MAX,1000,0}; // default values
+            signal::Signal emptySignal{ INT32_MAX,INT32_MIN,1000,0}; // default values
 
             for (int i = 0; i < m_srb.capacity(); ++i) {
                 #ifdef TESTING_MODE
@@ -71,17 +72,26 @@ std::vector<signal::Signal> m_srb{};
 
         ~SignalRingBuffer ()
         {   
-            ;   // when allcoated vectors go out of scope their heap usage is released
+            ;   // when allocated vectors go out of scope their heap usage is released
         }
 
         std::int32_t getCurrentSignalSlot() { return currentSignalSlot; }
         signal::Signal getSlotRef(int slot) { return m_srb[currentSignalSlot]; }
+
+        void printSignal(signal::Signal& signalRef)
+        {
+            std::cout << "Signal: actionTime:= " << std::to_string(signalRef.actionTime) << std::endl;
+            std::cout << "amplitude:= " << std::to_string(signalRef.amplitude)
+                      << " owner: = " << std::to_string(signalRef.owner) << std::endl; 
+            std::cout << "testId:= " << std::to_string(signalRef.owner) << std::endl;
+        }
 
         /**
          * @brief   Pseudo-allocatSignalSlot
          * @details Put the following code into any routine that needs to request
          * that a signal slot be allocated.
          */
+        // return type is signal::Signal   
         // if (currentSignalSlot >= signalBufferCapacity) {
         //     currentSignalSlot = 0;
         //     return 0;

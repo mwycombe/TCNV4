@@ -40,6 +40,7 @@ extern std::vector<signal::Signal> m_srb;
        * @brief Replace this call to the SRB.allocateSignalSlot() function
        * with direct access and manipulation of the static slot management.
        * As the SRB always wraps this call never fails.
+       * 
        */
 
        /**

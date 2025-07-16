@@ -10,7 +10,7 @@ namespace connection
       int32_t lastSignalOriginTime {};        // last time a signal was issued on this connection - used for STP/LTP
       int32_t temporalDistanceToTarget{};     // time to deliver to target
       int16_t stpWeight{};                    // current weight for stp amplification
-      int16_t ltpWeigh{};                     // current weight for ltp amplification
+      int16_t ltpWeight{};                    // current weight for ltp amplification
   };
 
 }   // end of connection namespace
