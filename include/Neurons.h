@@ -17,6 +17,9 @@ std::int32_t neuronPoolCapacity{};          // filled in by constructor
 extern int32_t masterClock;
 
 int32_t cascadeAccumulator {0};             // used to accumulate effective neuron signal.
+int32_t aggregationDistance{0};             // used to check signal time for aggregation.
+int32_t neuronBeingProcessed{0};            // easiest way to track neuronID (aka number)
+int32_t youngestSignal{0};                  // used for purging incoming signals
 
 /** POP
     All neuron references exchanged with outside classes are done using
@@ -72,10 +75,13 @@ int32_t cascadeAccumulator {0};             // used to accumulate effective neur
  * 
  */
 
+namespace tconst = tcnconstants;
 namespace neurons
 {
     class Neurons {
-;
+        // create Connections so can can call public routines
+
+        connections = conns::Connections();
         /**
          * The Neurons class is responsible for creating the pool of neurons which
          * size is computed in the TCNConstants.h header.
@@ -155,73 +161,121 @@ namespace neurons
                             << std::endl;
             }
 
-        void scanNeuronsForSignals()
-        {
-        // now can scan the neuron pool looing for any valid signals
-        for (neuron::Neuron nRef : m_neuronPool)
+            void scanNeuronsForSignals()
             {
-            //  nRef will be set to a ref to every neuron in the pool
-            //  conditions to bother with a neuron looking for work:
-            //  Not refractory
-            //  Entries on the incomingSignals queue
-            //    Reasons to skip a neuron:
-            //    incomingSignals isEmpty OR 
-            //    incomingSignals length(1) AND firstSignal actionTime is INT32_MAX
-            //  
-            //  First implementation will not bother with STP and LTP - just moving signals
-            //  and testing for cascading.
-            //  
-            //  
-                if ( masterClock > nRef.refractoryEnd )
+                // now can scan the neuron pool looing for any valid signals
+                neuronBeingProcessed = -1;
+                for (neuron::Neuron nRef : m_neuronPool)
                 {
-                    if ( !(nRef.incomingSignals.empty()) ||
-                            ( nRef.incomingSignals.size() == 1 && 
-                                nRef.incomingSignals[0]->actionTime == INT32_MAX)  )
+                    //  nRef will be set to a ref to every neuron in the pool
+                    //  conditions to bother with a neuron looking for work:
+                    //  Not refractory
+                    //  Entries on the incomingSignals queue
+                    //    Reasons to skip a neuron:
+                    //    incomingSignals isEmpty OR 
+                    //    incomingSignals length(1) AND firstSignal actionTime is INT32_MAX
+                    //  
+                    //  First implementation will not bother with STP and LTP - just moving signals
+                    //  and testing for cascading.
+                    //  
+                    //  track neuronId which is zero based and is vector slot number in m_neuronPool
+
+                    ++neuronBeingProcessed;
+
+                    if ( masterClock > nRef.refractoryEnd )
+                    // only process neurons when they have exited refractory
                     {
-                        ;   // skip the neuron
-                    }
-                    else
-                    {
-                        // step through the incoming signals and broadcast them
-                        for (signal::Signal* sRef : nRef.incomingSignals)
+                        if ( !(nRef.incomingSignals.empty()) ||
+                                ( nRef.incomingSignals.size() == 1 && 
+                                    nRef.incomingSignals[0]->actionTime == INT32_MAX)  )
                         {
-                            // just use the simple signal size for now - without  stp/ltp
-                            // we aggregate existing prior signals for aggretation window width
-                            // have to scan the complet signal queue as they are not sorted by time of action
-
-
+                            ;   // skip the neuron
                         }
+                        else
+                        {
+                            // step through the incoming signals and broadcast them
+                            cascadeAccumulator = 0;
+                            for (signal::Signal* sRef : nRef.incomingSignals)
+                            {
+                                // just use the simple signal size for now - without  stp/ltp
+                                // we aggregate existing prior signals for aggretation window width
+                                // have to scan the complete signal queue as they are not sorted by time of action
+                                aggregationDistance = masterClock - sRef->actionTime;
+                                switch (aggregationDistance)
+                                {
+                                    case -5:    cascadeAccumulator += sRef->amplitude / 32;
+                                        break;
+                                    case -4:    cascadeAccumulator += sRef->amplitude / 16;
+                                        break;
+                                    case -3:    cascadeAccumulator += sRef->amplitude / 8;
+                                        break;
+                                    case -2:    cascadeAccumulator += sRef->amplitude / 4;
+                                        break;
+                                    case -1:    cascadeAccumulator += sRef->amplitude / 2;
+                                        break;
+                                    case 0:     cascadeAccumulator += sRef->amplitude;
+                                        break;                  
+                                }
+                            }
+                            if (cascadeAccumulator >= tconst::cascadeThreshold)
+                            {
+                                // neuron cascades and broadcasts it's own signal
+                                connections.generateOutGoingSignals(neuronBeingProcessed);
+                            }
+                        }
+                    }
+
+                    // purge neuron after proceesing
+
+                    purgeOldSignals(neuronBeingProcessed);
+                }
+            }
+
+            void purgeOldSignals (int32_t neuronId)
+          
+            /**
+             * @brief   Purge old signals by dropping their reference from the incomingSignals vector. 
+             * They are just dropped and left in the SRB to be reused by someone else.
+             * 
+             * @details Purging is a relatively expensive operation as the vector is shifted potentially
+             * multiple times. We only purge if the number of stale signals > purgeThreshold but are careful
+             * to leave in queue any signals that might contribute to aggregate window.
+             * The only reason to purge is if the incomingSignal queue gets bloated with old signals. When the 
+             * SRB (SignalRingBuffer) wraps, unpurged signals will have the old signal information in them inluding the owner. 
+             * It's important that when neurons process the incomingSignal queue they make sure they are the owner
+             * of the signal as really old signals that didn't get purged might have been reused after an SRB wrap.
+             * 
+             * @cond When to purge? If the incomingSignal vector get's larger than the purgeThreshold and the 
+             * signals are older than (now - aggretationThreshold) - which is the maximum time aggregation of an
+             * incoming signal can reach back in time to combine signals.
+             * The only reason to purge is to save memory in the incomingSignals ref queue. SRB ownership and SRB
+             * wrap takes care of reusing the actual signals and neuron signal processing ignores and potentially
+             * purges older signals. Otherwise, old signal refs just stay fallow in their respective neuron
+             * incomingSignal queues - and they are just refs, not the actual signals themselves, which remain in 
+             * the SRB. 
+             * 
+             * Efficient algorithm: Check for any signals that are still in the aggregation window.
+             * If there are none then clear the vector - the quickest cheapest way to purge signals.
+             */
+            {
+                if (m_neuronPool[neuronId].incomingSignals.size() > tconst::purgeThreshold)
+                {
+                    youngestSignal = 0;
+                    for (int32_t i = 0; i<m_neuronPool[neuronId].incomingSignals.size(); ++i)
+                    {
+                        (m_neuronPool[neuronId].incomingSignals[i]->actionTime > youngestSignal) ? 
+                                m_neuronPool[neuronId].incomingSignals[i]->actionTime : youngestSignal;
+                    }
+
+                    if (youngestSignal > (masterClock - aggregationDistance))
+                    {
+                        // no signals that can ever contribute to cascade - so purge all
+                        m_neuronPool[neuronId].incomingSignals.clear();
                     }
                 }
             }
-        }
-
-        /**
-         * @brief   Purge old signals by dropping their reference from the incomingSignals vector. 
-         * They are just dropped and left in the SRB to be reused by someone else.
-         * 
-         * @details Purging is a relatively expensive operation as the vector is shifted potentially
-         * multiple times. We only purge if the number of stale signals > purgeThreshold but are careful
-         * to leave in queue any signals that might contribute to aggregate window.
-         * The only reason to purge is if the incomingSignal queue gets bloated with old signals. When the 
-         * SRB (SignalRingBuffer) wraps, unpurged signals will have the old signal information in them inluding the owner. 
-         * It's important that when neurons process the incomingSignal queue they make sure they are the owner
-         * of the signal as really old signals that didn't get purged might have been reused after an SRB wrap.
-         * 
-         * @cond When to purge? If the incomingSignal vector get's larger than the purgeThreshold and the 
-         * signals are older than (now - aggretationThreshold) - which is the maximum time aggregation of an
-         * incoming signal can reach back in time to combine signals.
-         * The only reason to purge is to save memory in the incomingSignals ref queue. SRB ownership and SRB
-         * wrap takes care of reusing the actual signals and neuron signal processing ignores and potentially
-         * purges older signals. Otherwise, old signal refs just stay fallow in their respective neuron
-         * incomingSignal queues - and they are just refs, not the actual signals themselves, which remain in 
-         * the SRB. 
-         * 
-         */
-
         
-        private:
-     // after being scanned purge signals if > purgeThreshold
+
     };
 
 } // end neurons namespace

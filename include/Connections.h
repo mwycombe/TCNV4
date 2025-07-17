@@ -112,6 +112,11 @@ namespace conns
             }
 
         }
+
+        Connections ()
+        {
+            ;   // no parameters constructor
+        }
         // static int32_t     connection_count;                // number of connections created
         // static int     get_target_neuron(int);          // return numer of target neuron
         // static int     get_temporal_distance(int);      // return temporal distance
