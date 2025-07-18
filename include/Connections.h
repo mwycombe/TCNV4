@@ -139,8 +139,17 @@ namespace conns
         {
             std::cout << "Connection: Neuron:= " << std::to_string(connRef.targetNeuronSlot);
             std::cout << " TemporalDistance:= " << std::to_string(connRef.temporalDistanceToTarget) << std::endl;
+            std::cout << "Last Signal: " << std::to_string(connRef.lastSignalOriginTime) << std::endl;
             std::cout << "STP Weight:= " << std::to_string(connRef.stpWeight);
             std::cout << " LTP Weight:= " << std::to_string(connRef.ltpWeight) << std::endl;
+
+        }
+        void printConnectionFromPointer (connection::Connection* cptr)
+        {
+            std::cout << "Connection: Neuron:= " << std::to_string(cptr->targetNeuronSlot);
+            std::cout << " TemporalDistance:= " << std::to_string(cptr->temporalDistanceToTarget) << std::endl;
+            std::cout << "STP Weight:= " << std::to_string(cptr->stpWeight);
+            std::cout << " LTP Weight:= " << std::to_string(cptr->ltpWeight) << std::endl;
 
         }
 

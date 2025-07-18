@@ -57,7 +57,7 @@ int main ()
     // This is the default pools capacity for testing.
 
    conns::Connections connections = conns::Connections(1000000); 
-   neurons::Neurons neurons = neurons::Neurons(350000);
+   neurons::Neurons neurons = neurons::Neurons(15000);
    srb::SignalRingBuffer srb = srb::SignalRingBuffer(500000);
 
    int32_t nextSignalSlot;
@@ -84,8 +84,6 @@ int main ()
   // This is necessary because vector range operator does not provide slot number
   int32_t connSlot{};
   int32_t neuronSlot{};
-  int32_t neuronSlot{};
-
 
   // pseudo slotAllocationRoutines - these return numbers
   // Both are set to start @ -1 so [0] is the first one dispensed
@@ -95,7 +93,21 @@ int main ()
 
   // These should be refs to the first element in each pool
   connRef = m_connPool[connSlot];
+  connections.printConnection(connRef);
+  std::cout << std::endl;
   neuronRef = m_neuronPool[neuronSlot];
+  neurons.printNeuron(neuronRef);
+  std::cout << std::endl;
+
+  // std::cout << "Type ids for the above refs..\n";
+  // nothing useful from the name.
+  // std::cout << "connRef: " << typeid(connRef).name() << std::endl;
+  // std::cout << "neuronRef: " << typeid(neuronRef).name() << std::endl;
+
+  // std::cout << "\n*** Should be first neuron in the pool...\n";
+  // neurons.printNeuron(m_neuronPool[0]);
+  // std::cout << std::endl;
+
 
   // SRB is different as it can wrap  
   // Initial value should be INT32_MAX to cause immediate wrap
@@ -111,16 +123,16 @@ int main ()
   signalRef = m_srb[nextSignalSlot];
 
   std::cout << "Conn/Neuron slots assigned: Conn:= " << std::to_string(connSlot) << " Neuron: = " <<
-      std::to_string(neuronSlot) << "\n\n";
-  std::cout << "Signalslot assigned:= " << std::to_string(nextSignalSlot) << std::endl;
+      std::to_string(neuronSlot) << "\n";
+  std::cout << "Signal slot assigned:= " << std::to_string(nextSignalSlot) << std::endl;
 
-  std::cout<<"Neuron refractory in slot: = " << std::to_string(m_neuronPool[0].refractoryEnd) << "\n";
+  std::cout<<"\nNeuron refractory in slot: = " << std::to_string(m_neuronPool[0].refractoryEnd) << "\n";
 
   // all three elements are now addressed by a Ref from their respective pools
   // vector[x] returns ref to the element rather than making a copy
   // These should all be the filles.
 
-  std::cout << "\n******Print three fillers from pool slot 0 \n";
+  std::cout << "\n****** Print three fillers from pool slot 0 \n";
   //xxxRef are the filler values inserted by the constructor - they are all the same in each pool
   connections.printConnection(connRef);
    std::cout << std::endl;
@@ -144,24 +156,42 @@ int main ()
   // We only have one neuron [0] so we are going to use if for outgoing and
   // incoming signals during testing of signal handling
 
-  neuronRef.refractoryEnd = 999;
+  // Make sure neuron is out of refractory period so signals will enqueue
+  // Master clock is set @ 1000
+  neuronRef.refractoryEnd = 200;
 
 
-  neuronRef.outgoingSignals.push_back(&connRef);  // push a pointer onto the neuron outgoing signal vector
-  // for this test put the element @ 1
+  // neuronRef.outgoingSignals.push_back(&connRef);  // push a pointer onto the neuron outgoing signal vector
+  // for this test put the element @ 1 - outgoing length now 2
 
-  neuronRef.outgoingSignals[1] = &connRef;          // replace element zero refractoryEnd
+  std::cout << "\n>>> ConnRef before we push it into neuron[0]:= \n";
+  connections.printConnection(connRef);
 
+  neuronRef.outgoingSignals[0] = &connRef;          
+  // This should leave the outgoing signal length @ 1
 
-  std::cout << "\nThis is the neuronRef we created with a pushed outgoing connRef pointer:\n";
-  neurons.printNeuron(neuronRef);   // lets see if neuron was changed via the ref.
+  std::cout << "\nAfter modifying outgoingSignals in neuron[0]\n";
+  neurons.printNeuron (neuronRef);
+
+  // ? what is the type of outgoingSignals[0]?
+  std::cout << "\noutgoingSignal slot type: " << typeid(neuronRef.outgoingSignals[0]).name() << std::endl;
+
+  std::cout << "\nPrint outgoingSignal slot tempDist:= " << neuronRef.outgoingSignals[0]->temporalDistanceToTarget << std::endl;
 
   std::cout << "\nNewly enqueued conn to Neuron from connRef\n";
+
   connections.printConnection(connRef);
   std::cout <<std::endl;
 
   std::cout << "Retrieve and print from neuron outgoingSignals vector... \n";
-  connections.printConnection(*(m_neuronPool[0].outgoingSignals[0]));
+  // std::cout << "Neuron[0].outgoingSignals[0]:=" << std::to_string((*(m_neuronPool[0].outgoingSignals[0])).temporalDistanceToTarget) << std::endl;
+  connections.printConnectionFromPointer(neuronRef.outgoingSignals[0]);
+  //
+  // For whatever reason the refence below does not work...have to use neuronRef to
+  // get the correct answer.
+  //
+  // connections.printConnectionFromPointer((m_neuronPool[0]).outgoingSignals[0]);
+  // 
   std::cout << std::endl; 
   
 
@@ -171,14 +201,16 @@ int main ()
   // 
   // Testing note: neuron refractory is set at 999; connection temporal distance 5000
   // so enqueueing of the signal should be possible.
+  // ERROR: If neuron refractory is greater than current clock then neuron is still
+  //        refractory and should no enqueue any signals
 
-  masterClock = 0;  // start at zero time
+  masterClock = 1000;  // start so neuron is out of refractory
 
   // provision enqueue a signal that will cause neuron 0 to cascade
 
   int32_t futureSignalTime{1000};   // testing value beyond end of refractory period
 
-  if (futureSignalTime > m_neuronPool[0].refractoryEnd)
+  if (masterClock > neuronRef.refractoryEnd)
   { // worth enqueing the signal
 
     // SRB is different as it can wrap  
@@ -209,11 +241,14 @@ int main ()
 
     std::cout << "Modified first signal slot: " << '\n';
     srb.printSignal(signalRef);
+    std::cout << std::endl;
 
     // for testing push the signal onto neuron[0]
     // node vector queues are always pointers, never the underlying structure
 
-    m_neuronPool[0].incomingSignals.push_back(&signalRef);
+    neuronRef.incomingSignals.push_back(&signalRef);
+
+
 
     //
     // at this point we should have a connection pointing to the same node - ok for testing
@@ -224,16 +259,26 @@ int main ()
     //
     // Now we call the neuron scan routing in neurons::Neurons
 
-    neurons::Neurons neuronObject;  // we will need a default constructor for this in Neurons
-    
-    neuronObject.scanNeuronsForSignals();
+    std::cout << "\nShow neuron entries before we scan\n";
+
+    neuron::Neuron tempNeuronRef = m_neuronPool[0];
+    std::cout << "\nNeuron [0]\n";
+    std::cout << "Refractory end: " << std::to_string(m_neuronPool[0].refractoryEnd) << std::endl;
+    neurons.printNeuron(tempNeuronRef);
+
+    tempNeuronRef = m_neuronPool[1];
+    std::cout << "Neuron [1]\n";
+    std::cout << "Refractory end: " << std::to_string(m_neuronPool[1].refractoryEnd) << std::endl;
+    neurons.printNeuron(tempNeuronRef);
+
+    neurons.scanNeuronsForSignals();
   }
 
-  // print out what we have in neuron[0].
-  neuronRef = m_neuronPool[0];  // get the first neuron
-  std::cout << "Neuron Ref [0]" << std::endl;
-  neurons.printNeuron(neuronRef);
-  std::cout << std::endl;
+  // // print out what we have in neuron[0].
+  // neuronRef = m_neuronPool[0];  // get the first neuron
+  // std::cout << "Neuron Ref [0]" << std::endl;
+  // neurons.printNeuron(neuronRef);
+  // std::cout << std::endl;
 
   // step through incoming and outgoing signals
 

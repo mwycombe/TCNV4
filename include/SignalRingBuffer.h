@@ -70,6 +70,8 @@ std::vector<signal::Signal> m_srb{};       // this remains a vector of the actua
             }
         }
 
+        SignalRingBuffer() = default;
+
         ~SignalRingBuffer ()
         {   
             ;   // when allocated vectors go out of scope their heap usage is released
@@ -81,9 +83,9 @@ std::vector<signal::Signal> m_srb{};       // this remains a vector of the actua
         void printSignal(signal::Signal& signalRef)
         {
             std::cout << "Signal: actionTime:= " << std::to_string(signalRef.actionTime) << std::endl;
-            std::cout << "amplitude:= " << std::to_string(signalRef.amplitude)
-                      << " owner: = " << std::to_string(signalRef.owner) << std::endl; 
-            std::cout << "testId:= " << std::to_string(signalRef.owner) << std::endl;
+            std::cout << "owner: = " << std::to_string(signalRef.owner) 
+                << " amplitude:= " << std::to_string(signalRef.amplitude) << std::endl; 
+            std::cout << "testId:= " << std::to_string(signalRef.testId) << std::endl;
         }
 
         /**

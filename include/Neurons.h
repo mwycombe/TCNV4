@@ -80,9 +80,10 @@ namespace neurons
 {
     class Neurons {
 
-        // create Connections for reference  so can can call public routines
+        // create Connections & Neurons for reference  so can can call public routines
         
         conns::Connections connObject;
+        srb::SignalRingBuffer signalObject;
 
         /**
          * The Neurons class is responsible for creating the pool of neurons which
@@ -122,17 +123,20 @@ namespace neurons
             
                 std::vector<signal::Signal*> incoming;
                 incoming.reserve(1);
+                
                 signal::Signal emptySignal{INT32_MAX,1000,0};
                 incoming.push_back(&emptySignal);    // force vector allocation with a ptr
 
                 std::vector<connection::Connection*> outgoing;
                 outgoing.reserve(1);
+
                 connection::Connection emptyConnection 
                 {
                     INT32_MAX, INT32_MAX,INT32_MAX,0,0
                 };
-                outgoing.push_back(&emptyConnection);    // force vector allocation wih a ptr
-                int32_t refractoryEnd = INT32_MIN;
+                outgoing.push_back(&emptyConnection);   // Force vector allocation wih a ptr
+
+                int32_t refractoryEnd = INT32_MAX;      // They should never process
 
                 neuron::Neuron emptyNeuron 
                 {
@@ -200,9 +204,13 @@ namespace neurons
                     ++neuronBeingProcessed;
 
                     // std::cout << "Scanning neuron:= " << std::to_string(neuronBeingProcessed) << "\n";
+
+                    nRef = m_neuronPool[neuronBeingProcessed];
+
                     if ( masterClock > nRef.refractoryEnd )
                     // only process neurons when they have exited refractory
-                    {
+                    {                    
+                        std::cout << " Processing non-refractory neuron:= " << std::to_string(neuronBeingProcessed) << "\n";
                         if ( ((nRef.incomingSignals.empty()) ||
                                 ( nRef.incomingSignals.size() == 1 && 
                                     nRef.incomingSignals[0]->actionTime == INT32_MAX))  )
@@ -271,6 +279,7 @@ namespace neurons
                             }
                         }
                     }
+                    ++neuronBeingProcessed; // step to next neuron slot
                 }
                 std::cout << "Last Neuron processed:= " << std::to_string(neuronBeingProcessed) << std::endl;
                 std::cout << "End of neuron scan \n";
