@@ -4,7 +4,7 @@
 #include <vector>
 #include "TCNConstants.h"
 #include "Connection.h"
-#include "Neurons.h"
+#include "Neuron.h"
 #include "SignalRingBuffer.h"
 
 // make this extern global so all can access it.
@@ -113,10 +113,8 @@ namespace conns
 
         }
 
-        Connections ()
-        {
-            ;   // no parameters constructor
-        }
+        Connections() = default;
+
         // static int32_t     connection_count;                // number of connections created
         // static int     get_target_neuron(int);          // return numer of target neuron
         // static int     get_temporal_distance(int);      // return temporal distance
@@ -137,195 +135,192 @@ namespace conns
         // static short    apply_ltp(int, short);
         // static int     * getLastClockOrigin();          // return address of last clock array
 
+        void printConnection (connection::Connection &connRef)
+        {
+            std::cout << "Connection: Neuron:= " << std::to_string(connRef.targetNeuronSlot);
+            std::cout << " TemporalDistance:= " << std::to_string(connRef.temporalDistanceToTarget) << std::endl;
+            std::cout << "STP Weight:= " << std::to_string(connRef.stpWeight);
+            std::cout << " LTP Weight:= " << std::to_string(connRef.ltpWeight) << std::endl;
 
-        public:
+        }
 
-            void printConnection (connection::Connection &connRef)
+        int32_t generateOutGoingSignals(int32_t neuronId) 
+        {
+            /**
+             * @brief step through the outgoing signals for the specified neuron
+             * and generate a signal for every valid connection
+             * 
+             * @param   slot number for neuron to generate signals for
+             * 
+             * @return  slot number we are processing for tracking
+             * 
+             * @details For every connection found in the outgoingSignals for neuonId
+             * a signal is generated using the parameter found in the connection object.
+             * 
+             * The only neurons that are called to generate signals are those that have 
+             * cascaded as indicated by the refractory end being set to a future clock.
+             * 
+             * All other neurons have no signals to be created.
+             * 
+             * The caller is responsible for only requesting signal generation for 
+             * qualifying neurons.
+             * 
+             */
+            // 
+            // Loop through all of the connections for a neuron and generate and
+            // enqueue a signal to the target neuron for each of the connections.
+            // There will be as many signals generate as there are valid connections
+            // in the outgoingSignals queue.
+            for (connection::Connection *ptr : m_neuronPool[neuronId].outgoingSignals)
             {
-                std::cout << "Connection: Neuron:= " << std::to_string(connRef.targetNeuronSlot);
-                std::cout << " TemporalDistance:= " << std::to_string(connRef.temporalDistanceToTarget) << std::endl;
-                std::cout << "STP Weight:= " << std::to_string(connRef.stpWeight);
-                std::cout << " LTP Weight:= " << std::to_string(connRef.ltpWeight) << std::endl;
-
-            }
-
-            int32_t generateOutGoingSignals(int32_t neuronId) 
-            {
-                /**
-                 * @brief step through the outgoing signals for the specified neuron
-                 * and generate a signal for every valid connection
-                 * 
-                 * @param   slot number for neuron to generate signals for
-                 * 
-                 * @return  slot number we are processing for tracking
-                 * 
-                 * @details For every connection found in the outgoingSignals for neuonId
-                 * a signal is generated using the parameter found in the connection object.
-                 * 
-                 * The only neurons that are called to generate signals are those that have 
-                 * cascaded as indicated by the refractory end being set to a future clock.
-                 * 
-                 * All other neurons have no signals to be created.
-                 * 
-                 * The caller is responsible for only requesting signal generation for 
-                 * qualifying neurons.
-                 * 
-                 */
-                // 
-                // Loop through all of the connections for a neuron and generate and
-                // enqueue a signal to the target neuron for each of the connections.
-                // There will be as many signals generate as there are valid connections
-                // in the outgoingSignals queue.
-                for (connection::Connection *ptr : m_neuronPool[neuronId].outgoingSignals)
+                if (ptr->targetNeuronSlot >= 0)
                 {
-                    if (ptr->targetNeuronSlot >= 0)
+                    // now check if target is refractory - ergo accept no signal for refractory period
+                    if ( ptr->temporalDistanceToTarget >
+                        m_neuronPool[ptr->targetNeuronSlot].refractoryEnd )      
                     {
-                        // now check if target is refractory - ergo accept no signal for refractory period
-                        if ( ptr->temporalDistanceToTarget >
-                            m_neuronPool[ptr->targetNeuronSlot].refractoryEnd )      
-                        {
-                            // only generate a signal if connection clock is beyond refractory end
-                            // otherwise no point in generating a signal
-                            nodeSignaled = generateASignal(ptr);
-                        }
+                        // only generate a signal if connection clock is beyond refractory end
+                        // otherwise no point in generating a signal
+                        nodeSignaled = generateASignal(ptr);
                     }
+                }
+        
+                // if (connectionIsNotFiller(ptr))
+                // {
+                //     generateASignal(ptr);
+                // }
+            }
+            return neuronId;
+        }
+
+        bool connectionIsNotFiller(connection::Connection *ptr)
+        {
+            // never called; used as example of required test
+            // make sure we don't process a filler connection left over from constructor
+            // where targets were init'd to -1
+            return ptr->targetNeuronSlot >= 0;
+        }
+
+        int32_t generateASignal(connection::Connection *ptr)
+        {
+        /**
+         * @brief For each valid connection, generate a signal using the connection
+         * parameters and return the slot number of the targetted neuron - for debugging
+         * 
+         * @param   ptr to the connection retrieved from the neuron's outgoingSignals vector
+         * that defines the connection which will be used to generate the signal and enqueued
+         * to the target neuron's incomingSignals queue.
+         * 
+         * @details first allocate a signal slot; then fill it's values; then enqueue to target
+         * neuron incomingSignals queue vector
+         * 
+         * @return slot number of the target neuron - used for tracing
+         * 
+         */
+            // SRB is different as it can wrap  
+            if (currentSignalSlot >= signalBufferCapacity) {
+                currentSignalSlot = 0;
+                nextSignalSlot = 0;
+            }
+            else { 
+                nextSignalSlot = ++currentSignalSlot; 
+            }
+
+            // srb is a vector of signal::Signal structs - returns ref to the struct
+            signalRef = m_srb[nextSignalSlot];
             
-                    // if (connectionIsNotFiller(ptr))
-                    // {
-                    //     generateASignal(ptr);
-                    // }
-                }
-                return neuronId;
-            }
-
-            bool connectionIsNotFiller(connection::Connection *ptr)
-            {
-                // never called; used as example of required test
-                // make sure we don't process a filler connection left over from constructor
-                // where targets were init'd to -1
-                return ptr->targetNeuronSlot >= 0;
-            }
-
-            int32_t generateASignal(connection::Connection *ptr)
-            {
-            /**
-             * @brief For each valid connection, generate a signal using the connection
-             * parameters and return the slot number of the targetted neuron - for debugging
-             * 
-             * @param   ptr to the connection retrieved from the neuron's outgoingSignals vector
-             * that defines the connection which will be used to generate the signal and enqueued
-             * to the target neuron's incomingSignals queue.
-             * 
-             * @details first allocate a signal slot; then fill it's values; then enqueue to target
-             * neuron incomingSignals queue vector
-             * 
-             * @return slot number of the target neuron - used for tracing
-             * 
-             */
-                // SRB is different as it can wrap  
-                if (currentSignalSlot >= signalBufferCapacity) {
-                    currentSignalSlot = 0;
-                    nextSignalSlot = 0;
-                }
-                else { 
-                    nextSignalSlot = ++currentSignalSlot; 
-                }
-
-                // srb is a vector of signal::Signal structs - returns ref to the struct
-                signalRef = m_srb[nextSignalSlot];
-                
-                // fill in the signal values before enqueueing to the target
-                signalRef.actionTime = ptr->temporalDistanceToTarget;   // fixed distance
-                signalRef.amplitude = ptr->stpWeight + ptr->ltpWeight;  // moderated amplitudes
-                signalRef.owner = ptr->targetNeuronSlot;                // target is the signal owner
-                
-                // targetNeuronId = ptr->targetNeuronSlot; // this is where to enqueue the signal
-                // m_neuronPool[targetNeuronId].incomingSignals.push_back(&signalRef);
-                // skip the extra assignment
-                // incomingSignals is a vector of pointers to Signal structs
-                
-                m_neuronPool[ptr->targetNeuronSlot].incomingSignals.push_back(&signalRef);
+            // fill in the signal values before enqueueing to the target
+            signalRef.actionTime = ptr->temporalDistanceToTarget;   // fixed distance
+            signalRef.amplitude = ptr->stpWeight + ptr->ltpWeight;  // moderated amplitudes
+            signalRef.owner = ptr->targetNeuronSlot;                // target is the signal owner
+            
+            // targetNeuronId = ptr->targetNeuronSlot; // this is where to enqueue the signal
+            // m_neuronPool[targetNeuronId].incomingSignals.push_back(&signalRef);
+            // skip the extra assignment
+            // incomingSignals is a vector of pointers to Signal structs
+            
+            m_neuronPool[ptr->targetNeuronSlot].incomingSignals.push_back(&signalRef);
 
 
-                return ptr->targetNeuronSlot;
-            }
-            // static int *target_neurons_origin;    // 32 bit pointer to the target
-            // static int *temporal_distance_origin; // relative clock distance to target
-            // static short *signal_size_origin;     // current size of signal for this connection/synapse - base is 1000
-            // static short *stp_accumulator_origin; // stp accumulated level
-            // static short *ltp_accumulator_origin; // ltp accumulated level
-            // static int *last_signal_clock_origin; // used to determine how much STP & LTP decay has occurred
-            // static int next_connection_slot;      // used to allocate connections slots during building of the
-            //                                       // neuron connection networks
-            // he signal size will be modified by STP and LTP and any other memory and enhancement actions
-            // static int connection_count;                 // number of connections created
+            return ptr->targetNeuronSlot;
+        }
+        // static int *target_neurons_origin;    // 32 bit pointer to the target
+        // static int *temporal_distance_origin; // relative clock distance to target
+        // static short *signal_size_origin;     // current size of signal for this connection/synapse - base is 1000
+        // static short *stp_accumulator_origin; // stp accumulated level
+        // static short *ltp_accumulator_origin; // ltp accumulated level
+        // static int *last_signal_clock_origin; // used to determine how much STP & LTP decay has occurred
+        // static int next_connection_slot;      // used to allocate connections slots during building of the
+        //                                       // neuron connection networks
+        // he signal size will be modified by STP and LTP and any other memory and enhancement actions
+        // static int connection_count;                 // number of connections created
 
-            /**
-             * @brief   Given that all pools and elements are public we should be able to avoid
-             * using these getter/setter functions - speed is the goal and avoiding function
-             * calls is done wherever possible.
-             */
+        /**
+         * @brief   Given that all pools and elements are public we should be able to avoid
+         * using these getter/setter functions - speed is the goal and avoiding function
+         * calls is done wherever possible.
+         */
 
-            // get the target neuron slot for the given connection
-            // int32_t get_target_neuron(int32_t connectionSlot, int32_t neuronSlot)
-            // {
-            //     return 0;   // return neuron target slot for the connection
-            // }    
+        // get the target neuron slot for the given connection
+        // int32_t get_target_neuron(int32_t connectionSlot, int32_t neuronSlot)
+        // {
+        //     return 0;   // return neuron target slot for the connection
+        // }    
 
-            // // return the temporal clock distance for the connection slot
-            // int32_t get_temporal_distance(int32_t connectionSlot)
-            // {
-            //     return 0;// return temporal distance
-            // }    
+        // // return the temporal clock distance for the connection slot
+        // int32_t get_temporal_distance(int32_t connectionSlot)
+        // {
+        //     return 0;// return temporal distance
+        // }    
 
-            // int16_t get_signal_size(int32_t connectionSlot)
-            // {
-            //     return 0;   // return the weight for the current connection
-            // }             
-            // int16_t get_stp_accumulator(int32_t connnectionSlot)
-            // {
-            //     return 0;   
-            // };       
-            // int16_t get_ltp_accumulator(int32_t connectionSlot)
-            // {
-            //     return 0;   // return ltp accumulator value
-            // };       
+        // int16_t get_signal_size(int32_t connectionSlot)
+        // {
+        //     return 0;   // return the weight for the current connection
+        // }             
+        // int16_t get_stp_accumulator(int32_t connnectionSlot)
+        // {
+        //     return 0;   
+        // };       
+        // int16_t get_ltp_accumulator(int32_t connectionSlot)
+        // {
+        //     return 0;   // return ltp accumulator value
+        // };       
 
-            // // set the target neuron slot for the connection slot
-            // void set_target_neuron(int32_t connectionSlot, int32_t neuronslot)
-            // {
-            //     ;    // set target neuron number for connection
+        // // set the target neuron slot for the connection slot
+        // void set_target_neuron(int32_t connectionSlot, int32_t neuronslot)
+        // {
+        //     ;    // set target neuron number for connection
 
-            // }
-            // void set_temporal_distance(int32_t connectionSlot, int32_t temporalDistance)
-            // {
-            //     ;   // set temporal distance to target neuron for the connection
-            // }
-            // void set_signal_size(int32_t signalSlot, int16_t )
-            // {
-            //     ;   // set the signal weigth into the signal 
-            // }     // set the size for the signal
-            // void set_stp_accumulator(int32_t connectionSlot, int16_t stpWeight)
-            // {
-        
-            // } // set the stp accumulator value
-            // void set_ltp_accumulator(int32_t connectionslot, int16_t ltpWeight)
-            // {
-            //     ;
-            // } 
-            // void apply_stp(int32_t connectionSlot, int16_t stpValue)
-            // {
-            //     ;   // set stp result value in connection
-            // }
-            // void apply_ltp(int32_t connectionSlot, int16_t ltpValue)
-            // {
-            //     ;   // set ltp result value in connection
-            // }
-        
-            ~Connections()
-            {
-                ;   // when allocated vectors go out of scope their heap usage is released.
-            }
+        // }
+        // void set_temporal_distance(int32_t connectionSlot, int32_t temporalDistance)
+        // {
+        //     ;   // set temporal distance to target neuron for the connection
+        // }
+        // void set_signal_size(int32_t signalSlot, int16_t )
+        // {
+        //     ;   // set the signal weigth into the signal 
+        // }     // set the size for the signal
+        // void set_stp_accumulator(int32_t connectionSlot, int16_t stpWeight)
+        // {
+    
+        // } // set the stp accumulator value
+        // void set_ltp_accumulator(int32_t connectionslot, int16_t ltpWeight)
+        // {
+        //     ;
+        // } 
+        // void apply_stp(int32_t connectionSlot, int16_t stpValue)
+        // {
+        //     ;   // set stp result value in connection
+        // }
+        // void apply_ltp(int32_t connectionSlot, int16_t ltpValue)
+        // {
+        //     ;   // set ltp result value in connection
+        // }
+    
+        ~Connections()
+        {
+            ;   // when allocated vectors go out of scope their heap usage is released.
+        }
 
 
     };

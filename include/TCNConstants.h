@@ -115,12 +115,13 @@ namespace tcnconstants
     [ STP section ]
     */
     inline constexpr   int16_t base_signal_size {1000};       // 1000 to one - 8x fits in a int16_t for ltp
-    inline constexpr   int16_t aggregation_decay_factor {2}; // 1/2 @ 1 msec then 1/4 @ 2 msec then done
     inline constexpr   int16_t stp_signal_limit {2 * base_signal_size};     // limited to doubling
     inline constexpr   int16_t stp_tetanic_pulse_size {10};     // tetanic pulse size
+   
     // compute how many signal boosts we get per tetanic pules spike
     inline constexpr   int16_t stp_units_per_tetanic_pulse {(stp_signal_limit - base_signal_size)/stp_tetanic_pulse_size};
     inline constexpr   int32_t stp_decay_time {20 * 60 * 1000};   // 20 minutes in millisecs
+   
     // each decay interval reduces stp value by one unit - approx 120 msecs
     inline constexpr   int16_t stp_unit_decay_interval {stp_decay_time / (stp_signal_limit - base_signal_size)};
 

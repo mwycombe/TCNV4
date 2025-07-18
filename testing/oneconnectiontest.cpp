@@ -60,6 +60,8 @@ int main ()
    neurons::Neurons neurons = neurons::Neurons(350000);
    srb::SignalRingBuffer srb = srb::SignalRingBuffer(500000);
 
+   int32_t nextSignalSlot;
+
 
    std::cout << "Connections pool:= " << std::to_string(connectionPoolCapacity) << '\n';
    std::cout << "Neuron pool:= " << std::to_string(neuronPoolCapacity) << '\n';
@@ -70,7 +72,7 @@ int main ()
    // get ref to first connection
    // get ref to first neuron
    //
-   // connection connection to neuron
+   // connect connection to neuron
    // get first signal and poke connection
    // check if signal was delivered to neuron
 
@@ -79,53 +81,54 @@ int main ()
   neuron::Neuron neuronRef;
   signal::Signal signalRef;
 
+  // This is necessary because vector range operator does not provide slot number
   int32_t connSlot{};
+  int32_t neuronSlot{};
   int32_t neuronSlot{};
 
 
   // pseudo slotAllocationRoutines - these return numbers
+  // Both are set to start @ -1 so [0] is the first one dispensed
+
   connSlot = ++currentConnectionSlot;
   neuronSlot = ++currentNeuronSlot;
 
+  // These should be refs to the first element in each pool
   connRef = m_connPool[connSlot];
   neuronRef = m_neuronPool[neuronSlot];
 
-  std::cout << "Conn/Neuron slots assigned: Conn:= " << std::to_string(connSlot) << " Neuron: = " <<
-      std::to_string(neuronSlot) << "\n\n";
-
-  std::cout << "Conn slot after assignment:= " << std::to_string(currentConnectionSlot) << std::endl;
-  std::cout << "Neuron current slot after assignment: = " << std::to_string(currentNeuronSlot) << "\n\n";
-  
-  std::cout<<"Neuron refractory in slot: = " << std::to_string(m_neuronPool[0].refractoryEnd) << "\n\n";
-
-
-
   // SRB is different as it can wrap  
-  int32_t nextSignalSlot;
+  // Initial value should be INT32_MAX to cause immediate wrap
 
   if (currentSignalSlot >= signalBufferCapacity) {
-    currentSignalSlot = 0;
-    nextSignalSlot = 0;
+      currentSignalSlot = 0;
+      nextSignalSlot = 0;
   }
   else { 
-    nextSignalSlot = ++currentSignalSlot; 
+      nextSignalSlot = ++currentSignalSlot; 
   }
+  // srb is a vector of signal::Signal structs - returns ref to the struct
   signalRef = m_srb[nextSignalSlot];
+
+  std::cout << "Conn/Neuron slots assigned: Conn:= " << std::to_string(connSlot) << " Neuron: = " <<
+      std::to_string(neuronSlot) << "\n\n";
+  std::cout << "Signalslot assigned:= " << std::to_string(nextSignalSlot) << std::endl;
+
+  std::cout<<"Neuron refractory in slot: = " << std::to_string(m_neuronPool[0].refractoryEnd) << "\n";
 
   // all three elements are now addressed by a Ref from their respective pools
   // vector[x] returns ref to the element rather than making a copy
+  // These should all be the filles.
 
   std::cout << "\n******Print three fillers from pool slot 0 \n";
-  //xxxRef are the filler values inserted by the constructor - they are all the same
+  //xxxRef are the filler values inserted by the constructor - they are all the same in each pool
   connections.printConnection(connRef);
    std::cout << std::endl;
   neurons.printNeuron(neuronRef);
   std::cout << std::endl;
   // std::cout<<"Neuron current slot after assignment: = " << std::to_string(connSlot) << std::endl;
-  std::cout << std::endl;
   srb.printSignal(signalRef);
   std::cout << "**********\n";
-
 
   // build the first connection
   // first get a neuron by asking Neurons to provision a neuron.
@@ -138,12 +141,16 @@ int main ()
   connRef.ltpWeight = 250;                      // arbitrary
 
   // push this onto the target neuron outgoing connections queue
+  // We only have one neuron [0] so we are going to use if for outgoing and
+  // incoming signals during testing of signal handling
+
   neuronRef.refractoryEnd = 999;
 
 
-  //neuronRef.outgoingSignals.push_back(&connRef);  // push a pointer onto the neuron outgoing signal vector
-  // for this test replace the element @ 0
-  neuronRef.outgoingSignals[0] = &connRef;          // replace element zero
+  neuronRef.outgoingSignals.push_back(&connRef);  // push a pointer onto the neuron outgoing signal vector
+  // for this test put the element @ 1
+
+  neuronRef.outgoingSignals[1] = &connRef;          // replace element zero refractoryEnd
 
 
   std::cout << "\nThis is the neuronRef we created with a pushed outgoing connRef pointer:\n";
@@ -154,8 +161,7 @@ int main ()
   std::cout <<std::endl;
 
   std::cout << "Retrieve and print from neuron outgoingSignals vector... \n";
-  //connections.printConnection(*(m_neuronPool[1]));
-  connections.printConnection(connRef);
+  connections.printConnection(*(m_neuronPool[0].outgoingSignals[0]));
   std::cout << std::endl; 
   
 
@@ -176,9 +182,13 @@ int main ()
   { // worth enqueing the signal
 
     // SRB is different as it can wrap  
+    // currentSignalSlot was set to INT32_MAX so it should wrap to 0
+ 
+    int32_t nextSignalSlot;
+
     if (currentSignalSlot >= signalBufferCapacity) {
-        currentSignalSlot = 0;
-        nextSignalSlot = 0;
+    currentSignalSlot = 0;
+    nextSignalSlot = 0;
     }
     else { 
         nextSignalSlot = ++currentSignalSlot; 
@@ -187,11 +197,18 @@ int main ()
     // srb is a vector of signal::Signal structs - returns ref to the struct
     signalRef = m_srb[nextSignalSlot];
 
+    std::cout << "First signal slot allocated: " << std::to_string(nextSignalSlot) << "\n";
+    srb.printSignal(signalRef);
+    std::cout << std::endl;
+
     signalRef.actionTime = 1100;     // beyond refractory end
     signalRef.amplitude = tconst::cascadeThreshold + 1; // make signal large enough to cascade
     // ownership is used to ensure incomingSignal queues do not process the wrong signal if
     // the srb has wrapped and reused an old signal
-    signalRef.owner = nextSignalSlot; // remember node that owns the signal
+    signalRef.owner = neuronSlot; // remember neuron that owns the signal
+
+    std::cout << "Modified first signal slot: " << '\n';
+    srb.printSignal(signalRef);
 
     // for testing push the signal onto neuron[0]
     // node vector queues are always pointers, never the underlying structure
@@ -204,8 +221,23 @@ int main ()
     // the clock is set beyond the refractory end so signal can enqueue
     // scanning the neurons should find the signal to cascade the neuron and emit signals to 
     // the connections found in the outgoingSignals vector.
+    //
+    // Now we call the neuron scan routing in neurons::Neurons
 
+    neurons::Neurons neuronObject;  // we will need a default constructor for this in Neurons
+    
+    neuronObject.scanNeuronsForSignals();
   }
+
+  // print out what we have in neuron[0].
+  neuronRef = m_neuronPool[0];  // get the first neuron
+  std::cout << "Neuron Ref [0]" << std::endl;
+  neurons.printNeuron(neuronRef);
+  std::cout << std::endl;
+
+  // step through incoming and outgoing signals
+
+
 
   std::cout << "End of oneconnection test..." << std::endl;
 

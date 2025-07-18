@@ -79,9 +79,11 @@ namespace tconst = tcnconstants;
 namespace neurons
 {
     class Neurons {
-        // create Connections so can can call public routines
 
-        connections = conns::Connections();
+        // create Connections for reference  so can can call public routines
+        
+        conns::Connections connObject;
+
         /**
          * The Neurons class is responsible for creating the pool of neurons which
          * size is computed in the TCNConstants.h header.
@@ -144,6 +146,9 @@ namespace neurons
                     m_neuronPool.push_back(emptyNeuron);
                 }
             }
+
+            // Default constructor
+            Neurons() = default;
         
             ~Neurons()
             {
@@ -163,43 +168,57 @@ namespace neurons
 
             void scanNeuronsForSignals()
             {
-                // now can scan the neuron pool looing for any valid signals
+                // Now can scan the neuron pool looing for any valid signals
+                // Have to keep track of the neuron slot being processed as there is
+                // no way for the range to let us know where we are
+
                 neuronBeingProcessed = -1;
+
+                std::cout << "Starting neuron scan...\n";
+
                 for (neuron::Neuron nRef : m_neuronPool)
                 {
                     //  nRef will be set to a ref to every neuron in the pool
-                    //  conditions to bother with a neuron looking for work:
+                    //  Conditions to process a neuron when ooking for work:
+                    //
                     //  Not refractory
                     //  Entries on the incomingSignals queue
                     //    Reasons to skip a neuron:
-                    //    incomingSignals isEmpty OR 
-                    //    incomingSignals length(1) AND firstSignal actionTime is INT32_MAX
+                    //    (incomingSignals isEmpty) OR 
+                    //    (incomingSignals length(1) AND firstSignal actionTime is INT32_MAX)
+                    //
+                    //  NOTE: This second reason means the neuron has never received a signal
+                    //        and is still in its original allocation condition which would 
+                    //        indicate a neuron from whom connections might be pruned.
                     //  
                     //  First implementation will not bother with STP and LTP - just moving signals
                     //  and testing for cascading.
                     //  
+
                     //  track neuronId which is zero based and is vector slot number in m_neuronPool
 
                     ++neuronBeingProcessed;
 
+                    // std::cout << "Scanning neuron:= " << std::to_string(neuronBeingProcessed) << "\n";
                     if ( masterClock > nRef.refractoryEnd )
                     // only process neurons when they have exited refractory
                     {
-                        if ( !(nRef.incomingSignals.empty()) ||
+                        if ( ((nRef.incomingSignals.empty()) ||
                                 ( nRef.incomingSignals.size() == 1 && 
-                                    nRef.incomingSignals[0]->actionTime == INT32_MAX)  )
+                                    nRef.incomingSignals[0]->actionTime == INT32_MAX))  )
                         {
                             ;   // skip the neuron
                         }
                         else
                         {
-                            // step through the incoming signals and broadcast them
+                            // Step through the incoming signals and broadcast them
+                            // Remember neuron vectors hold pointer to signal
                             cascadeAccumulator = 0;
                             for (signal::Signal* sRef : nRef.incomingSignals)
                             {
-                                // just use the simple signal size for now - without  stp/ltp
-                                // we aggregate existing prior signals for aggretation window width
-                                // have to scan the complete signal queue as they are not sorted by time of action
+                                // Just use the simple signal size for now - without  stp/ltp
+                                // We aggregate existing prior signals for aggretation window width
+                                // Have to scan the complete signal queue as they are not sorted by time of action
                                 aggregationDistance = masterClock - sRef->actionTime;
                                 switch (aggregationDistance)
                                 {
@@ -220,19 +239,49 @@ namespace neurons
                             if (cascadeAccumulator >= tconst::cascadeThreshold)
                             {
                                 // neuron cascades and broadcasts it's own signal
-                                connections.generateOutGoingSignals(neuronBeingProcessed);
+                                connObject.generateOutGoingSignals(neuronBeingProcessed);
                             }
                         }
                     }
 
-                    // purge neuron after proceesing
+                    // Test to purge neuron signal after proceesing
 
-                    purgeOldSignals(neuronBeingProcessed);
+                    // pseudo purgeOldSignals(neuronBeingProcessed);
+
+                    // This is another candidate to merge inline and avoid an expensive
+                    // method call for every neuron processed. Again, done for speed.
+                    {
+                        // Only purger if there is enough signals to bother with
+                        if (m_neuronPool[neuronBeingProcessed].incomingSignals.size() > tconst::purgeThreshold)
+                        {
+                            youngestSignal = 0;     // youngest is the signal wih the biggest clock value
+
+                            for (int32_t i = 0; i < m_neuronPool[neuronBeingProcessed].incomingSignals.size(); ++i)
+                            {
+                                // Capture the largest clock value we can find on the incoming queue of the neuron
+                                youngestSignal = 
+                                        (m_neuronPool[neuronBeingProcessed].incomingSignals[i]->actionTime > youngestSignal) ? 
+                                        m_neuronPool[neuronBeingProcessed].incomingSignals[i]->actionTime : youngestSignal;
+                            }
+
+                            if (youngestSignal < (masterClock - aggregationDistance))
+                            {
+                                // no signals that can ever contribute to cascade - so purge all
+                                m_neuronPool[neuronBeingProcessed].incomingSignals.clear();
+                            }
+                        }
+                    }
                 }
+                std::cout << "Last Neuron processed:= " << std::to_string(neuronBeingProcessed) << std::endl;
+                std::cout << "End of neuron scan \n";
             }
 
-            void purgeOldSignals (int32_t neuronId)
-          
+
+
+
+
+            void purgeOldSignals (int32_t neuronBeingProcessed)
+
             /**
              * @brief   Purge old signals by dropping their reference from the incomingSignals vector. 
              * They are just dropped and left in the SRB to be reused by someone else.
@@ -258,19 +307,19 @@ namespace neurons
              * If there are none then clear the vector - the quickest cheapest way to purge signals.
              */
             {
-                if (m_neuronPool[neuronId].incomingSignals.size() > tconst::purgeThreshold)
+                if (m_neuronPool[neuronBeingProcessed].incomingSignals.size() > tconst::purgeThreshold)
                 {
                     youngestSignal = 0;
-                    for (int32_t i = 0; i<m_neuronPool[neuronId].incomingSignals.size(); ++i)
+                    for (int32_t i = 0; i<m_neuronPool[neuronBeingProcessed].incomingSignals.size(); ++i)
                     {
-                        (m_neuronPool[neuronId].incomingSignals[i]->actionTime > youngestSignal) ? 
-                                m_neuronPool[neuronId].incomingSignals[i]->actionTime : youngestSignal;
+                        (m_neuronPool[neuronBeingProcessed].incomingSignals[i]->actionTime > youngestSignal) ? 
+                                m_neuronPool[neuronBeingProcessed].incomingSignals[i]->actionTime : youngestSignal;
                     }
 
                     if (youngestSignal > (masterClock - aggregationDistance))
                     {
                         // no signals that can ever contribute to cascade - so purge all
-                        m_neuronPool[neuronId].incomingSignals.clear();
+                        m_neuronPool[neuronBeingProcessed].incomingSignals.clear();
                     }
                 }
             }
