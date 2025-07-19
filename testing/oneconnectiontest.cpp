@@ -76,7 +76,6 @@ int main ()
    // get first signal and poke connection
    // check if signal was delivered to neuron
 
-
   connection::Connection connRef;
   neuron::Neuron neuronRef;
   signal::Signal signalRef;
@@ -92,6 +91,7 @@ int main ()
   neuronSlot = ++currentNeuronSlot;
 
   // These should be refs to the first element in each pool
+  
   connRef = m_connPool[connSlot];
   connections.printConnection(connRef);
   std::cout << std::endl;
