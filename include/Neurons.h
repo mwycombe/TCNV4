@@ -139,8 +139,8 @@ namespace neurons
 
                 std::cout << "Empty entries for neuron allocation:\n";
 
-                std::cout << "\nincoming[0]:= " << std::to_string(incomingSignals[0]->actionTime);
-                std::cout << "\noutgoing[0]:= " << std::to_string(outgoingSignals[0]->temporalDistanceToTarget) << std::endl;
+                std::cout << "\nincoming[0] actionTime:= " << std::to_string(incomingSignals[0]->actionTime);
+                std::cout << "\noutgoing[0] temporalDistance:= " << std::to_string(outgoingSignals[0]->temporalDistanceToTarget) << std::endl;
 
                 int32_t refractoryEnd = INT32_MAX;      // They should never process
 
@@ -160,6 +160,10 @@ namespace neurons
                 std::cout << "\nincoming[0]:= " << std::to_string(incomingSignals[0]->actionTime);
                 std::cout << "\noutgoing[0]:= " << std::to_string(outgoingSignals[0]->temporalDistanceToTarget) << std::endl;
 
+                std::cout << "\nWhat's in the empty neuron?\n";
+                std::cout << "\nincomingSignal:= " << std::to_string(emptyNeuron.incomingSignals[0]->actionTime) << std::endl;
+                std::cout << "\noutgoingSignal:= " << std::to_string(emptyNeuron.outgoingSignals[0]->temporalDistanceToTarget) << std::endl;
+                
                 for (int i = 0; i < m_neuronPool.capacity(); ++i) {
                     m_neuronPool.push_back(emptyNeuron);
                 }
@@ -167,6 +171,7 @@ namespace neurons
                 std::cout << "\nIs empty neuron[0] still good?\n";
                 std::cout << "\nInput[0]:= " << std::to_string(m_neuronPool[0].incomingSignals[0]->actionTime);
                 std::cout << "\nOutgoing[0]:= " << std::to_string(m_neuronPool[0].outgoingSignals[0]->temporalDistanceToTarget) << std::endl;
+                std::cout << std::endl;
             }
 
             // Default constructor

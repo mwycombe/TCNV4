@@ -91,7 +91,7 @@ int main ()
   neuronSlot = ++currentNeuronSlot;
 
   // These should be refs to the first element in each pool
-  
+  std::cout << "\nRefs for each first in pool\n";
   connRef = m_connPool[connSlot];
   connections.printConnection(connRef);
   std::cout << std::endl;
