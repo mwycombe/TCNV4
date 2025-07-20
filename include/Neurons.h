@@ -121,34 +121,52 @@ namespace neurons
                 // first create minimal signal queue and connection queue vectors
                 // use impossible values that will never be processed
             
-                std::vector<signal::Signal*> incoming;
-                incoming.reserve(1);
+                std::vector<signal::Signal*> incomingSignals;
+                incomingSignals.reserve(1);
                 
+                // incoming.push_back(&emptySignal);    // force vector allocation with a ptr
+
+                std::vector<connection::Connection*> outgoingSignals;
+                outgoingSignals.reserve(1);
+
                 signal::Signal emptySignal{INT32_MAX,1000,0};
-                incoming.push_back(&emptySignal);    // force vector allocation with a ptr
-
-                std::vector<connection::Connection*> outgoing;
-                outgoing.reserve(1);
-
                 connection::Connection emptyConnection 
                 {
                     INT32_MAX, INT32_MAX,INT32_MAX,0,0
                 };
-                outgoing.push_back(&emptyConnection);   // Force vector allocation wih a ptr
+                incomingSignals.push_back(&emptySignal);
+                outgoingSignals.push_back(&emptyConnection);   // Force vector allocation wih a ptr
+
+                std::cout << "Empty entries for neuron allocation:\n";
+
+                std::cout << "\nincoming[0]:= " << std::to_string(incomingSignals[0]->actionTime);
+                std::cout << "\noutgoing[0]:= " << std::to_string(outgoingSignals[0]->temporalDistanceToTarget) << std::endl;
 
                 int32_t refractoryEnd = INT32_MAX;      // They should never process
 
+                // This shouldl populate the struct with the provided variables.
                 neuron::Neuron emptyNeuron 
                 {
-                    incoming,       // length one vector
-                    outgoing,       // length one vector
+                    incomingSignals,      // length one vector
+                    outgoingSignals,      // length one vector
                     refractoryEnd   // refractory end is now - neuron will process and enqueue
                                     // set to some future clock when neuron cascades
                 };
 
+                // What's in the empty neuron?
+                std::cout << "\nPrint empty neuron\n";
+                printNeuron(emptyNeuron);
+                std::cout << std::endl;
+                std::cout << "\nincoming[0]:= " << std::to_string(incomingSignals[0]->actionTime);
+                std::cout << "\noutgoing[0]:= " << std::to_string(outgoingSignals[0]->temporalDistanceToTarget) << std::endl;
+
                 for (int i = 0; i < m_neuronPool.capacity(); ++i) {
                     m_neuronPool.push_back(emptyNeuron);
                 }
+
+                std::cout << "\nIs empty neuron[0] still good?\n";
+                std::cout << "\nInput[0]:= " << std::to_string(m_neuronPool[0].incomingSignals[0]->actionTime);
+                std::cout << "\nOutgoing[0]:= " << std::to_string(m_neuronPool[0].outgoingSignals[0]->temporalDistanceToTarget) << std::endl;
             }
 
             // Default constructor

@@ -1,49 +1,92 @@
-objects = oneconnectiontest.o Connections.o Neurons.o \
+objects := oneconnectiontest.o Connections.o Neurons.o \
 				SignalRingBuffer.o
-headers = Connection.h Connections.h Neuron.h Neurons.h \
+
+headers := Connection.h Connections.h Neuron.h Neurons.h \
 				SignalRingBuffer.h TCNConstants.h 
-oneconnectiontest:  oneconnectiontest.o, Connection.h, Connections.h \
-	Neuron.h, Neurons.h Signal.h SignalRingBuffer.h TCNConstants.h \
-	Connections.o Neurons.o SignalRingBuffer.o logger.h logger.o
-	@echo "Link everything together"
-	C:/msys64/ucrt64/bin/g++.exe" 
 
-oneconnectiontest.o: oneconnectiontest.cpp TCNConstants.h
-	# compile this cpp file
-	@echo "Compile oneconnection.cpp"
-	C:/msys64/ucrt64u/bin/g++.exe -std=c++20 -c -fdiagnostics-color=always \
-				-g -I${workspaceFolder}/include 
-				"-c",
-				"-fdiagnostics-color=always",
-				"-g",
-				"-I${workspaceFolder}\\include",
-				"${file}"
+files := file1 file2
 
-Connections.o: Connections.cpp Connections.h TCNConstants.h
-	# compile if any changes
-	@echo "Compile Connections.cpp"
+gnucompiler := C:/msys64/ucrt64/bin/g++.exe
 
-Neurons.o:	Neurons.cpp Neurons.h TCNConstants.h
-	# compile if any changes
-	@echo "Compile Neurons.cpp"
+codebase := E:/Coding/c++/TCNV4
+include := $(codebase)/include/
+testtarget := $(codebase)/testing/lib/
+onetest := $(CURDIR)/oneconnectiontest.exe
 
-SignalRingBuffer.o: SignalRingBuffer.cpp SignalRingBuffer.h TCNConstants.h
-	# compile if any changes
-	@echo "Compile SignalRingBuffer.cpp"
+buildtest:  addprefix($(include)$(headers)
+	@echo $?
 
-logger.o: logger.cpp logger.h
-	# compile if any changes
-	@echo "Compile logger.cpp"
+Connections.o:
 
-			"label": "C/C++: Validated compile-only single file, no linking, default output",
-			"command": "C:\\msys64\\ucrt64\\bin\\g++.exe",
-			"args": [
-				"-std=c++20",
-				"-c",
-				"-fdiagnostics-color=always",
-				"-g",
-				"-I${workspaceFolder}\\include",
-				"${file}"
-			],
+Neurons.o:
+
+SignalBuffer.o:
+
+echocompiler:
+	echo $(gnucompiler)
+
+trythis:
+	# echo $(gnucompiler)
+	$(gnucompiler) -c -fdiagnostics-color=always -g \
+		oneconnectiontest.cpp -o $(testtarget)oneconnectontest.o
 
 
+
+./lib/oneconnectiontest.o : $(include)$(headers)
+	@echo Just Compile 
+	echo $(gnucompiler)
+	$(gnucompiler) -c -fdiagnostics-color=always -g  -I $(include) \
+		$(CURDIR)/oneconnectiontest.cpp -o $(testtarget)oneconnectiontest.o
+
+
+Connection.h:
+	@echo $@
+
+Connections.h:
+	@echo $@
+
+Neuron.h:
+	@echo $@
+
+Neurons.h:
+	@echo $@
+
+TCNConstants.h:
+	@echo $@
+
+SignalRingBuffer.h:
+	@echo $@
+
+./lib/oneconnectiontest.exe : $(include)$(headers)
+	@echo "Compile and Link" 
+	echo $(gnucompiler)
+	$(gnucompiler)  -fdiagnostics-color=always -g \
+		-I $(include) \
+		$(CURDIR)/oneconnectiontest.cpp -o \
+		$(testtarget)oneconnectiontest.exe
+
+runoneconnectiontest:
+	$(testtarget)/oneconnectiontest.exe
+
+tryit:
+	@echo $(include)
+	@echo $(testtarget)
+	@echo $(onetest)
+	@echo $(CURDIR)
+	@echo $(include)Connections.h
+
+
+some_file: $(files)
+	@echo "Look at this variable:" $(files)
+	@echo $<	# first prereq
+	@echo $^  # all prereqs
+
+file1:
+	@echo $@	# ref target name
+
+file2:
+	@echo $@
+
+
+prefixtest: 
+	echo (addprefix $(include),$(headers))

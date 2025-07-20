@@ -56,7 +56,7 @@ int main ()
 
     // This is the default pools capacity for testing.
 
-   conns::Connections connections = conns::Connections(1000000); 
+   conns::Connections connections = conns::Connections(1000000);
    neurons::Neurons neurons = neurons::Neurons(15000);
    srb::SignalRingBuffer srb = srb::SignalRingBuffer(500000);
 
@@ -98,6 +98,23 @@ int main ()
   neuronRef = m_neuronPool[neuronSlot];
   neurons.printNeuron(neuronRef);
   std::cout << std::endl;
+
+  //show incoming and outgoing signals first entries - which should be empty fakes
+  std::cout << "\nUsing neuronRef";
+  std::cout << "\nneuronRef.incomingSignals[0]:= " << 
+    std::to_string((neuronRef.incomingSignals[0])->actionTime) << std::endl;
+
+  std::cout << "\nneuronRef.outgoingSignals[0]:= " << 
+    std::to_string((neuronRef.outgoingSignals[0])->temporalDistanceToTarget) << std::endl;
+
+  std::cout << "\nUsing m_neuronPool[0]";
+  std::cout << "\nm_neuronPool[0].incomingSignals[0]:= " << 
+    std::to_string(m_neuronPool[0].incomingSignals[0]->actionTime) << std::endl;
+
+  std::cout << "\nm_neuronPool[0]].outgoingSignals[0]:= " << 
+    std::to_string(m_neuronPool[0].outgoingSignals[0]->temporalDistanceToTarget) << std::endl;
+
+
 
   // std::cout << "Type ids for the above refs..\n";
   // nothing useful from the name.
