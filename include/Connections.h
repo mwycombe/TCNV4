@@ -15,22 +15,27 @@ int32_t connectionPoolCapacity{};   // filled in by constructor
 
 // other globals used by connections
 
-extern std::vector<neuron::Neuron> m_neuronPool;
-extern std::int32_t currentNeuronSlot; // forces start @ 0
-extern std::int32_t neuronPoolCapacity;
+extern int32_t globalNextEvent;       // Definef in Neurons.h/cpp
 
-extern std::int32_t currentSignalSlot;
-extern std::int32_t signalBufferCapacity;
+extern std::vector<neuron::Neuron> m_neuronPool;
+extern int32_t currentNeuronSlot; // forces start @ 0
+extern int32_t neuronPoolCapacity;
+
+extern int32_t currentSignalSlot;
+extern int32_t signalBufferCapacity;
 extern std::vector<signal::Signal> m_srb;
 
 extern int32_t masterClock;
 
 namespace tconst = tcnconstants;
 namespace conns
+
 {
     signal::Signal signalRef;
-    int32_t targetNeuronId; // used when enqueueing new signals
-    int32_t nodeSignaled;   // used for tracing which nodes get a connection signal
+    int32_t targetNeuronId;     // used when enqueueing new signals
+    int32_t neuronSignaled;     // used for tracing which nodes get a connection signal
+
+    srb::SignalRingBuffer srbObj = srb::SignalRingBuffer();     // used for printouts
     /**
     * 
     * @brief   Wherever possible all access and update functions for the connections
@@ -171,6 +176,8 @@ namespace conns
         
         int32_t generateOutGoingSignals(int32_t neuronId) 
         {
+            // This should only be invoked by a neuron that cascades
+
             /**
             * @brief step through the outgoing signals for the specified neuron
             * and generate a signal for every valid connection
@@ -179,7 +186,7 @@ namespace conns
             * 
             * @return  slot number we are processing for tracking
             * 
-            * @details For every connection found in the outgoingSignals for neuonId
+            * @details For every connection found in the outgoingSignals for neuronId
             * a signal is generated using the parameter found in the connection object.
             * 
             * The only neurons that are called to generate signals are those that have 
@@ -188,7 +195,8 @@ namespace conns
             * All other neurons have no signals to be created.
             * 
             * The caller is responsible for only requesting signal generation for 
-            * qualifying neurons.
+            * qualifying neurons that cascade. The magnitude of the cascade causing
+            * event is of no concern to the signal generator.
             * 
             */
             // 
@@ -196,17 +204,27 @@ namespace conns
             // enqueue a signal to the target neuron for each of the connections.
             // There will be as many signals generate as there are valid connections
             // in the outgoingSignals queue.
+
+            std::cout << "\nGenerate signals called with neuronId:= " << std::to_string(neuronId);
+
             for (int32_t connIdx : m_neuronPool[neuronId].outgoingSignals)
             {
+                std::cout << "\noutgoing targetNeuronSlot:= " << std::to_string(m_connPool[connIdx].targetNeuronSlot);
                 if (m_connPool[connIdx].targetNeuronSlot >= 0)      // not an empty proto connection
                 {
+                    std::cout << "\nDistance vs. refractoryEnd:= " << 
+                        std::to_string(m_connPool[connIdx].temporalDistanceToTarget) << " vs. " <<
+                        std::to_string(m_neuronPool[neuronId].refractoryEnd);
                     // now check if target is refractory - ergo accept no signal for refractory period
                     if ( m_connPool[connIdx].temporalDistanceToTarget >
                         m_neuronPool[neuronId].refractoryEnd )      
                         {
                             // only generate a signal if connection clock is beyond refractory end
                             // otherwise no point in generating a signal
-                            nodeSignaled = generateASignal(connIdx);
+
+                            neuronSignaled = generateASignal(connIdx);
+
+                            std::cout << "\nSignal generated to neuron:= " << std::to_string(neuronSignaled);
                         }
                     }
                     
@@ -218,15 +236,7 @@ namespace conns
                 return neuronId;
             }
             
-            bool connectionIsNotFiller(connection::Connection *ptr)
-            {
-                // never called; used as example of required test
-                // make sure we don't process a filler connection left over from constructor
-                // where targets were init'd to -1
-                return ptr->targetNeuronSlot >= 0;
-            }
-            
-            int32_t generateASignal(int32_t connIdx)
+          int32_t generateASignal(int32_t connIdx)
             {
                 /**
                 * @brief For each valid connection, generate a signal using the connection
@@ -242,6 +252,10 @@ namespace conns
                 * @return slot number of the target neuron - used for tracing
                 * 
                 */
+
+                std::cout << "\nGenerate a signal for connection:= " << std::to_string(connIdx);
+                printConnectionFromIndex(connIdx);
+
                 // SRB is different as it can wrap  
                 if (currentSignalSlot >= signalBufferCapacity) {
                     currentSignalSlot = 0;
@@ -252,13 +266,17 @@ namespace conns
                 }
                 
                 // srb is a vector of signal::Signal structs - returns ref to the struct
-                signalRef = m_srb[nextSignalSlot];
-                
+                 
                 // fill in the signal values before enqueueing to the target
                 m_srb[nextSignalSlot].actionTime = masterClock + m_connPool[connIdx].temporalDistanceToTarget;   // relative distance
                 m_srb[nextSignalSlot].amplitude = m_connPool[connIdx].stpWeight + m_connPool[connIdx].ltpWeight;  // moderated amplitudes
                 m_srb[nextSignalSlot].owner = m_connPool[connIdx].targetNeuronSlot;                // target is the signal owner
                 
+                std::cout << "\nCreated this signal:.... for nextSignalSlot:= " << std::to_string(nextSignalSlot);
+                srbObj.printSignalFromIndex(nextSignalSlot);
+
+                signal::Signal sigRef = m_srb[nextSignalSlot];  // this should point to the signal we are building
+                // srbObj.printSignalFromRef(signalRef);   // This should ref the same signal
                 
                 // targetNeuronId = ptr->targetNeuronSlot; // this is where to enqueue the signal
                 // m_neuronPool[targetNeuronId].incomingSignals.push_back(&signalRef);
@@ -267,8 +285,33 @@ namespace conns
                 
                 // m_neuronPool[ptr->targetNeuronSlot].incomingSignals.push_back(&signalRef);
                 // Just push the srb index into the target's incomingSignal queue.
+
+                std::cout << "\nAbout to push signal to targetNode: = " << std::to_string(m_connPool[connIdx].targetNeuronSlot);
+
                 m_neuronPool[m_connPool[connIdx].targetNeuronSlot].incomingSignals.push_back(nextSignalSlot);
+
+                // Save the next actionTime if it's smaller than the current globalNextEvent.
+                // This should avoid bothering with the scanning the incoming signals queue of every neuron
+                // to set their nextEvent and just run through and non-empty incoming signals queue.
+                globalNextEvent = (sigRef.actionTime >= globalNextEvent) ?
+                                        globalNextEvent : sigRef.actionTime;
+
+                // Every time we push a signal to a neuron we have to check the target neuron nextEvent.
+                // But this would become very, very expensive if there were lots of signals pushed to the same
+                // neuron.
+                // Do one giant pass over all neurons when we have finished scanning all of them. 
+                // We have to compute the nextEvent for all of the target neurons not the one that has cascaded
+                // and is generating signals.
+                // Ergo make on sweep after all neurons have been scanned for signal generation and only
+                // process neurons that have any incomingSignals.
             
+                std::cout << "\nPrint incoming signals for targetNode:= " << std::to_string(m_connPool[connIdx].targetNeuronSlot);
+
+                for (int32_t idx : m_neuronPool[m_connPool[connIdx].targetNeuronSlot].incomingSignals)
+                {
+                    std::cout << "\nsrb index:= " << std::to_string(idx);
+                    srbObj.printSignalFromIndex(idx);
+                }
                 
                 
                 return m_connPool[connIdx].targetNeuronSlot;

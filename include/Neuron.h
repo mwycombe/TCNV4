@@ -47,9 +47,10 @@ namespace neuron
 
 
 
-    std::vector<int32_t> incomingSignals;
-    std::vector<int32_t> outgoingSignals;
-    int32_t refractoryEnd;    // dynamically set when cascade happens.
+    std::vector<int32_t> incomingSignals; // index into srbPool
+    std::vector<int32_t> outgoingSignals; // index into connPool
+    std::int32_t nextEvent;               // set when a signal is enqued.
+    int32_t refractoryEnd;                // dynamically set when cascade happens.
 
   };
 }

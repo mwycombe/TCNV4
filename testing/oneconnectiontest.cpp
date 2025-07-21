@@ -71,8 +71,8 @@ int main ()
   int32_t neuronIdx;
   int32_t signalIdx;
 
-  int32_t nextSignalSlot;
-
+  int32_t nextSignalSlot;   // carries the next signal slot after pseudo-allocation.
+  
 
    std::cout << "Connections pool:= " << std::to_string(connectionPoolCapacity) << '\n';
    std::cout << "Neuron pool     := " << std::to_string(neuronPoolCapacity) << '\n';
@@ -216,43 +216,52 @@ int main ()
 
   std::cout << "\nNewly enqueued conn to Neuron from connRef\n";
 
-  connections.printConnectionFromIndex(m_neuronPool[neuronIdx].outgoingSignals[0]);
-  std::cout <<std::endl;
+  // connections.printConnectionFromIndex(m_neuronPool[neuronIdx].outgoingSignals[0]);
+  // std::cout <<std::endl;
 
-  std::cout << "Retrieve and print from neuron outgoingSignals vector... \n";
-  // std::cout << "Neuron[0].outgoingSignals[0]:=" << std::to_string((*(m_neuronPool[0].outgoingSignals[0])).temporalDistanceToTarget) << std::endl;
-  connections.printConnectionFromIndex(m_neuronPool[0].outgoingSignals[0]);
+  std::cout << "Retrieve and print from neuron outgoingSignals vector using neuronIdx:= " <<
+            std::to_string(neuronIdx) << '\n';
+  connections.printConnectionFromIndex(m_neuronPool[neuronIdx].outgoingSignals[0]);
   //
   // For whatever reason the refence below does not work...have to use neuronRef to
   // get the correct answer.
   //
   // connections.printConnectionFromPointer((m_neuronPool[0]).outgoingSignals[0]);
+  // Because need FromIndex not FromPointer - intellisense figured it out...
   // 
   std::cout << std::endl; 
   
 
-  // ask connection to create a new signal and enqueue it on it's target neuron.
-  // in this case it's the same neuron where it is enqueue but that doesn't matter for now.
+  // Ask connection to create a new signal and enqueue it on it's target neuron.
+  // In this case it's the same neuron where it is enqueue but that doesn't matter for now.
   // the neuron is the one who will ask; the connection is the one who will create signal(s)
   // 
-  // Testing note: neuron refractory is set at 999; connection temporal distance 5000
-  // so enqueueing of the signal should be possible.
+  // Testing note: neuron refractory is set at 200; connection temporal distance 5000 and
+  // masterClock to 1000 so enqueueing of the signal should be possible.
   // ERROR: If neuron refractory is greater than current clock then neuron is still
-  //        refractory and should no enqueue any signals
+  //        refractory and should not enqueue any signals
 
-  masterClock = 1000;  // start so neuron is out of refractory
+  globalNextEvent = 1000;
+  masterClock = globalNextEvent;  // Start so neuron is out of refractory set at 200
+
+  // For testing fix up the neuron's next event to be current masterClock
+
+  m_neuronPool[neuronIdx].nextEvent = masterClock;  // This is the clock tick we are processing
+
 
   // provision enqueue a signal that will cause neuron 0 to cascade
 
   int32_t futureSignalTime{1000};   // testing value beyond end of refractory period
 
   if (masterClock > m_neuronPool[neuronIdx].refractoryEnd)
-  { // worth enqueing the signal
+  { 
+    std:: cout << "\nmasterClock vs. refractoryEnd: = " << std::to_string(masterClock) <<
+        " vs. " << std::to_string(m_neuronPool[neuronIdx].refractoryEnd) << '\n';
 
-    // SRB is different as it can wrap  
-    // currentSignalSlot was set to INT32_MAX so it should wrap to 0
- 
-    int32_t nextSignalSlot;
+    // if it's worth enqueing the signal
+
+    // SRB is different as it can wrap   
+    // PSEUDO-ALLOCATION for srb
 
     if (currentSignalSlot >= signalBufferCapacity) {
     currentSignalSlot = 0;
@@ -262,15 +271,15 @@ int main ()
         nextSignalSlot = ++currentSignalSlot; 
     }
 
-    // // srb is a vector of signal::Signal structs - returns ref to the struct
+    // srb is a vector of signal::Signal structs - returns ref to the struct
     // signalPtr = &m_srb[nextSignalSlot];
-    // Just use the nextSignalSlot index into srg - don't bother with refs or pointers
+    // Just use the nextSignalSlot index into srb - don't bother with refs or pointers
 
-    std::cout << "First signal slot allocated: " << std::to_string(nextSignalSlot) << "\n";
-    srb.printSignalFromIndex(nextSignalSlot);
+    std::cout << "\nSRB pseudo-allocation <<<<<<<\nnextSignalSlot: ="  << std::to_string(nextSignalSlot) << "\n";
+    srb.printSignalFromIndex(nextSignalSlot);   // should be a proto signal from srb constructor time
     std::cout << std::endl;
 
-    m_srb[nextSignalSlot].actionTime = 1100;     // beyond refractory end
+    m_srb[nextSignalSlot].actionTime = 1100;     // beyond neuron refractory end
     m_srb[nextSignalSlot].amplitude = tconst::cascadeThreshold + 1; // make signal large enough to cascade
     // ownership is used to ensure incomingSignal queues do not process the wrong signal if
     // the srb has wrapped and reused an old signal
@@ -280,10 +289,46 @@ int main ()
     srb.printSignalFromIndex(nextSignalSlot);
     std::cout << std::endl;
 
-    // for testing push the signal onto neuron[0]
-    // node vector queues are always pointers, never the underlying structure
+    // For testing push the signal onto current neuron
+    // In future testing we will scan the outgoing signal queue and push signal onto the neuron
+    // designated by the outgoing connection target
 
-   m_neuronPool[neuronIdx].incomingSignals.push_back(nextSignalSlot);
+    m_neuronPool[neuronIdx].incomingSignals.push_back(nextSignalSlot);
+
+    // Have to add this scan of incomingSignals every time we enque a new signal.
+
+    std::cout << "\nmasterClock:= " << std::to_string(masterClock) << '\n';
+
+    m_neuronPool[neuronIdx].nextEvent = INT32_MAX;  // Ensure we capture the next lowest event from signals
+    globalNextEvent = INT32_MAX;                    // Ensure we capture the next lowest neuron event.
+  
+    for (int32_t signalScanIdx : m_neuronPool[neuronIdx].incomingSignals) // This is the c++ forEach
+    // for (int32_t signalScanIdx=0; signalScanIdx < m_neuronPool[neuronIdx].incomingSignals.size(); ++signalScanIdx)
+    {
+      // Note: forEach delivers the index into the srb pool, not the incoming signals vector
+      std::cout << "\nsignalScanIdx:= " << std::to_string(signalScanIdx);
+      std::cout << "\nincomingSignal size:= " << std::to_string(m_neuronPool[neuronIdx].incomingSignals.size());
+      std::cout << "\nincomingSignal clock:= " << 
+        std::to_string(m_srb[signalScanIdx].actionTime);
+
+      if (m_srb[signalScanIdx].actionTime > masterClock)
+      {
+        // This test should drop any proto signals with INT32_MIN actionTimes
+        // Only interested in future events
+        // Oldest signal/smallest clock is the next event of interest
+        // nextEvent alway primed with INT32_MAX so at least one signal will qualify
+        m_neuronPool[neuronIdx].nextEvent = 
+          (m_srb[signalScanIdx].actionTime < m_neuronPool[neuronIdx].nextEvent) ? 
+                m_srb[signalScanIdx].actionTime : m_neuronPool[neuronIdx].nextEvent;
+      }
+    }
+    // make globalNextEvent the oldest of the neuronEvents.
+    globalNextEvent = (globalNextEvent <= m_neuronPool[neuronIdx].nextEvent) ? 
+                          globalNextEvent : m_neuronPool[neuronIdx].nextEvent;
+
+    std::cout << "\n\nNeuron next event:= " << std::to_string(m_neuronPool[neuronIdx].nextEvent);
+    std::cout << "\n\nGlobal next event:= " << std::to_string(globalNextEvent);
+    // node vector queues are always indexes, never the underlying structure
 
     //
     // at this point we should have a connection pointing to the same node - ok for testing
@@ -298,29 +343,32 @@ int main ()
 
     // neuron::Neuron* tempNeuronPtr = &m_neuronPool[0];
     // No more pointers to vectors
+
     int32_t tempNeuronIdx = 0;
     std::cout << "\nNeuron [0]\n";
     std::cout << "Refractory end: " << std::to_string(m_neuronPool[tempNeuronIdx].refractoryEnd) << std::endl;
     neurons.printNeuronFromIndex(tempNeuronIdx);
 
     tempNeuronIdx = 1;
+    std::cout << "\nExpect to see an empty unused neuron\n";
     std::cout << "Neuron [1]\n";
     std::cout << "Refractory end: " << std::to_string(m_neuronPool[tempNeuronIdx].refractoryEnd) << std::endl;
     neurons.printNeuronFromIndex(tempNeuronIdx);
+    std::cout << '\n';
 
     neurons.scanNeuronsForSignals();
   }
 
-  // // print out what we have in neuron[0].
-  // neuronRef = m_neuronPool[0];  // get the first neuron
-  // std::cout << "Neuron Ref [0]" << std::endl;
-  // neurons.printNeuron(neuronRef);
-  // std::cout << std::endl;
 
-  // step through incoming and outgoing signals
+  // Show signals now enqued on neuron[0]
 
+  std::cout << "\nNeuron index: = " << std::to_string(neuronIdx);
 
-
+  for (int32_t sigRef : m_neuronPool[neuronIdx].incomingSignals)
+  {
+    srb.printSignalFromIndex(sigRef);
+    std::cout << '\n';
+  }
   std::cout << "End of oneconnection test..." << std::endl;
 
   return 0;

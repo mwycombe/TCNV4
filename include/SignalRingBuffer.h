@@ -23,8 +23,8 @@
 
  // Make signal ring buffer and control global    
 
-std::int32_t currentSignalSlot{0};          // [0] will remain the default blank until srb wraps
-std::int32_t signalBufferCapacity{};
+int32_t currentSignalSlot{0};          // [0] will remain the default blank until srb wraps
+int32_t signalBufferCapacity{};
 std::vector<signal::Signal> m_srb{};       // this remains a vector of the actual signals
 
  namespace srb
@@ -58,9 +58,10 @@ std::vector<signal::Signal> m_srb{};       // this remains a vector of the actua
 
             // init m_srb with empty signals to allocate heap
             // regardless of size
-            // create an empty signal with impossible clock value
+            // create an empty signal with impossible clock value -ve always less then masterClock which starts @0
+            // impossible owner too...
 
-            signal::Signal emptySignal{ INT32_MAX,INT32_MIN,1000,0}; // default values
+            signal::Signal emptySignal{ INT32_MIN,INT32_MIN,1000,0}; // default values 
 
             for (int i = 0; i < m_srb.capacity(); ++i) {
                 #ifdef TESTING_MODE
