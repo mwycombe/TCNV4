@@ -38,13 +38,17 @@ namespace neuron
      * July 2025 Vectors are changed to pointers to the signals and connections.
      * If we don't so this, every addition to the vectors makes a copy of the 
      * incoming structure. Refs will not work with vector so have to use pointers.
+     * 
+     * July 2025 incoming/outgoing signal pointers too volatile - use index number
+     * into the srb and connpools as the remain resolvable even if vectors move around
+     * in the heap.
      */
     
 
 
 
-    std::vector<signal::Signal*> incomingSignals;
-    std::vector<connection::Connection*> outgoingSignals;
+    std::vector<int32_t> incomingSignals;
+    std::vector<int32_t> outgoingSignals;
     int32_t refractoryEnd;    // dynamically set when cascade happens.
 
   };

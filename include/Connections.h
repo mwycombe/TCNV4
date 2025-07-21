@@ -10,7 +10,7 @@
 // make this extern global so all can access it.
 
 std::vector<connection::Connection> m_connPool{};
-int32_t currentConnectionSlot{-1};  // allocation always returns ++currentConnectionSlot - no wrap like srb
+int32_t currentConnectionSlot{0};  // allocation always returns ++currentConnectionSlot - 0 is default proto
 int32_t connectionPoolCapacity{};   // filled in by constructor
 
 // other globals used by connections
@@ -22,6 +22,8 @@ extern std::int32_t neuronPoolCapacity;
 extern std::int32_t currentSignalSlot;
 extern std::int32_t signalBufferCapacity;
 extern std::vector<signal::Signal> m_srb;
+
+extern int32_t masterClock;
 
 namespace tconst = tcnconstants;
 namespace conns
@@ -110,12 +112,24 @@ namespace conns
             for (int i = 0; i < connectionPoolCapacity; ++i){
                 m_connPool.push_back(blankConnection);
             }
+
+            std::cout << "\nCreated " << std::to_string(connectionPoolCapacity) << " empty connections\n";
             
         }
         
         Connections() = default;
         
-        // static int32_t     connection_count;                
+        // static int32_t     connection_count;    
+        
+        void printConnectionFromIndex(int32_t cidx)
+        {
+            std::cout << "\nConnection Index:= " << std::to_string(cidx) << '\n';
+            std::cout << "Target Neuron:= " << std::to_string(m_connPool[cidx].targetNeuronSlot);
+            std::cout << "\nTemporalDistance:= "<< std::to_string(m_connPool[cidx].temporalDistanceToTarget);
+            std::cout << "\nLast Signal:= " << std::to_string(m_connPool[cidx].lastSignalOriginTime);
+            std::cout << "\nSTP Weight:= " << std::to_string(m_connPool[cidx].stpWeight);
+            std::cout << "\nLRP Weight:= " << std::to_string(m_connPool[cidx].ltpWeight) << '\n';
+        }
         // number of connections created
         // static int     get_target_neuron(int);          // return numer of target neuron
         // static int     get_temporal_distance(int);      // return temporal distance
@@ -136,7 +150,7 @@ namespace conns
         // static short    apply_ltp(int, short);
         // static int     * getLastClockOrigin();          // return address of last clock array
         
-        void printConnection (connection::Connection &connRef)
+        void printConnectionFromRef (connection::Connection &connRef)
         {
             std::cout << "Connection: Neuron:= " << std::to_string(connRef.targetNeuronSlot);
             std::cout << " TemporalDistance:= " << std::to_string(connRef.temporalDistanceToTarget) << std::endl;
@@ -145,12 +159,13 @@ namespace conns
             std::cout << " LTP Weight:= " << std::to_string(connRef.ltpWeight) << std::endl;
             
         }
-        void printConnectionFromPointer (connection::Connection* cptr)
+        void printConnectionFromPointer (connection::Connection* connPtr)
         {
-            std::cout << "Connection: Neuron:= " << std::to_string(cptr->targetNeuronSlot);
-            std::cout << " TemporalDistance:= " << std::to_string(cptr->temporalDistanceToTarget) << std::endl;
-            std::cout << "STP Weight:= " << std::to_string(cptr->stpWeight);
-            std::cout << " LTP Weight:= " << std::to_string(cptr->ltpWeight) << std::endl;
+            std::cout << "Connection: Neuron:= " << std::to_string(connPtr->targetNeuronSlot);
+            std::cout << "\nTemporalDistance:= " << std::to_string(connPtr->temporalDistanceToTarget); 
+            std::cout << "\nLast signal:= " << std::to_string(connPtr->lastSignalOriginTime);
+            std::cout << "\nSTP Weight:= " << std::to_string(connPtr->stpWeight);
+            std::cout << "\nLTP Weight:= " << std::to_string(connPtr->ltpWeight) << std::endl;
             
         }
         
@@ -181,17 +196,17 @@ namespace conns
             // enqueue a signal to the target neuron for each of the connections.
             // There will be as many signals generate as there are valid connections
             // in the outgoingSignals queue.
-            for (connection::Connection *ptr : m_neuronPool[neuronId].outgoingSignals)
+            for (int32_t connIdx : m_neuronPool[neuronId].outgoingSignals)
             {
-                if (ptr->targetNeuronSlot >= 0)
+                if (m_connPool[connIdx].targetNeuronSlot >= 0)      // not an empty proto connection
                 {
                     // now check if target is refractory - ergo accept no signal for refractory period
-                    if ( ptr->temporalDistanceToTarget >
-                        m_neuronPool[ptr->targetNeuronSlot].refractoryEnd )      
+                    if ( m_connPool[connIdx].temporalDistanceToTarget >
+                        m_neuronPool[neuronId].refractoryEnd )      
                         {
                             // only generate a signal if connection clock is beyond refractory end
                             // otherwise no point in generating a signal
-                            nodeSignaled = generateASignal(ptr);
+                            nodeSignaled = generateASignal(connIdx);
                         }
                     }
                     
@@ -211,13 +226,13 @@ namespace conns
                 return ptr->targetNeuronSlot >= 0;
             }
             
-            int32_t generateASignal(connection::Connection *ptr)
+            int32_t generateASignal(int32_t connIdx)
             {
                 /**
                 * @brief For each valid connection, generate a signal using the connection
                 * parameters and return the slot number of the targetted neuron - for debugging
                 * 
-                * @param   ptr to the connection retrieved from the neuron's outgoingSignals vector
+                * @param   index to the connection retrieved from the neuron's outgoingSignals vector
                 * that defines the connection which will be used to generate the signal and enqueued
                 * to the target neuron's incomingSignals queue.
                 * 
@@ -240,19 +255,23 @@ namespace conns
                 signalRef = m_srb[nextSignalSlot];
                 
                 // fill in the signal values before enqueueing to the target
-                signalRef.actionTime = ptr->temporalDistanceToTarget;   // fixed distance
-                signalRef.amplitude = ptr->stpWeight + ptr->ltpWeight;  // moderated amplitudes
-                signalRef.owner = ptr->targetNeuronSlot;                // target is the signal owner
+                m_srb[nextSignalSlot].actionTime = masterClock + m_connPool[connIdx].temporalDistanceToTarget;   // relative distance
+                m_srb[nextSignalSlot].amplitude = m_connPool[connIdx].stpWeight + m_connPool[connIdx].ltpWeight;  // moderated amplitudes
+                m_srb[nextSignalSlot].owner = m_connPool[connIdx].targetNeuronSlot;                // target is the signal owner
+                
                 
                 // targetNeuronId = ptr->targetNeuronSlot; // this is where to enqueue the signal
                 // m_neuronPool[targetNeuronId].incomingSignals.push_back(&signalRef);
                 // skip the extra assignment
                 // incomingSignals is a vector of pointers to Signal structs
                 
-                m_neuronPool[ptr->targetNeuronSlot].incomingSignals.push_back(&signalRef);
+                // m_neuronPool[ptr->targetNeuronSlot].incomingSignals.push_back(&signalRef);
+                // Just push the srb index into the target's incomingSignal queue.
+                m_neuronPool[m_connPool[connIdx].targetNeuronSlot].incomingSignals.push_back(nextSignalSlot);
+            
                 
                 
-                return ptr->targetNeuronSlot;
+                return m_connPool[connIdx].targetNeuronSlot;
             }
             // static int *target_neurons_origin;    // 32 bit pointer to the target
             // static int *temporal_distance_origin; // relative clock distance to target

@@ -23,7 +23,7 @@
 
  // Make signal ring buffer and control global    
 
-std::int32_t currentSignalSlot{INT32_MAX};
+std::int32_t currentSignalSlot{0};          // [0] will remain the default blank until srb wraps
 std::int32_t signalBufferCapacity{};
 std::vector<signal::Signal> m_srb{};       // this remains a vector of the actual signals
 
@@ -80,12 +80,29 @@ std::vector<signal::Signal> m_srb{};       // this remains a vector of the actua
         std::int32_t getCurrentSignalSlot() { return currentSignalSlot; }
         signal::Signal getSlotRef(int slot) { return m_srb[currentSignalSlot]; }
 
-        void printSignal(signal::Signal& signalRef)
+        void printSignalFromIndex(int32_t sidx)
+        {
+            std::cout << "\nSignal Index:= " << std::to_string(sidx);
+            std::cout << "\nactionTime:= " << std::to_string(m_srb[sidx].actionTime);
+            std::cout << "\nowner:= " << std::to_string(m_srb[sidx].owner);
+            std::cout << "\namplitude:= " << std::to_string(m_srb[sidx].amplitude);
+            std::cout << "\ntestId:= " << std::to_string(m_srb[sidx].testId) << '\n';
+        }
+
+        void printSignalFromRef(signal::Signal& signalRef)
         {
             std::cout << "Signal: actionTime:= " << std::to_string(signalRef.actionTime) << std::endl;
             std::cout << "owner: = " << std::to_string(signalRef.owner) 
                 << " amplitude:= " << std::to_string(signalRef.amplitude) << std::endl; 
             std::cout << "testId:= " << std::to_string(signalRef.testId) << std::endl;
+        }
+        void printSignalFromPointer(signal::Signal* signalPtr)
+        {
+            std::cout << "\nSignal: actionTime:= " << std::to_string(signalPtr->actionTime);
+            std::cout << "\nowner:= " << std::to_string(signalPtr->owner);
+            std::cout << "\namplitude:= " << std::to_string(signalPtr->amplitude);
+            std::cout << "\ntestId:= " << std::to_string(signalPtr->testId);
+            std::cout << std::endl;
         }
 
         /**

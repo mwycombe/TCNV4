@@ -11,6 +11,7 @@
 namespace neurons
 {
 
+  
 
 //    static const int neuron_count {tcn_params -> arrayOfTCNs[tcnet][tcn_neurons]}; // avoid repeat long expression
 //     refractoryEndOrigin = new int32_t[neuron_count];

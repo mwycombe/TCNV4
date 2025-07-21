@@ -10,7 +10,7 @@
 #include "Neuron.h"
 
 // *** temporary master clock for testing
-inline int32_t masterClock {0};
+extern int32_t masterClock;
 inline int32_t oldestEvent {0};
 
 extern std::vector<connection::Connection> m_connPool;
@@ -54,18 +54,29 @@ int main ()
    * one of these signals for every connection in the outgoingSignal neuron queue.
    */
 
-    // This is the default pools capacity for testing.
+  // This is the default pools capacity for testing.
+  // Create signals and connections before the neurons as neuron creation references them.
 
-   conns::Connections connections = conns::Connections(1000000);
-   neurons::Neurons neurons = neurons::Neurons(15000);
-   srb::SignalRingBuffer srb = srb::SignalRingBuffer(500000);
+  srb::SignalRingBuffer srb = srb::SignalRingBuffer(500000); 
+  conns::Connections connections = conns::Connections(1000000);
+  neurons::Neurons neurons = neurons::Neurons(15000);
 
-   int32_t nextSignalSlot;
+  // These objects are used for accessing printer routines
+  conns::Connections* connObj = &connections;
+  neurons::Neurons* neuronObj = &neurons;
+  srb::SignalRingBuffer* srbObj = &srb;
+
+  // Indexes into pools used as vector ptrs are too volatile
+  int32_t connIdx;
+  int32_t neuronIdx;
+  int32_t signalIdx;
+
+  int32_t nextSignalSlot;
 
 
    std::cout << "Connections pool:= " << std::to_string(connectionPoolCapacity) << '\n';
-   std::cout << "Neuron pool:= " << std::to_string(neuronPoolCapacity) << '\n';
-   std::cout << "SRB pool:= " << std::to_string(signalBufferCapacity) << "\n\n";
+   std::cout << "Neuron pool     := " << std::to_string(neuronPoolCapacity) << '\n';
+   std::cout << "SRB pool        := " << std::to_string(signalBufferCapacity) << "\n\n";
 
    // TEST:
    // connect the first connection to the first neuron
@@ -76,54 +87,59 @@ int main ()
    // get first signal and poke connection
    // check if signal was delivered to neuron
 
-  connection::Connection connRef;
-  neuron::Neuron neuronRef;
-  signal::Signal signalRef;
+
 
   // This is necessary because vector range operator does not provide slot number
   int32_t connSlot{};
   int32_t neuronSlot{};
+  int32_t signalSlot{};
 
   // pseudo slotAllocationRoutines - these return numbers
-  // Both are set to start @ -1 so [0] is the first one dispensed
+  // Both are set to start @ 0 so [0] is the never dispensed and should never process
 
   connSlot = ++currentConnectionSlot;
   neuronSlot = ++currentNeuronSlot;
+  signalIdx = signalSlot;
 
-  // These should be refs to the first element in each pool
-  std::cout << "\nRefs for each first in pool\n";
-  connRef = m_connPool[connSlot];
-  connections.printConnection(connRef);
+
+
+  // These should be slots to the first element in each pool
+  std::cout << "\nIndexes for each FIRST IN POOL.\n";
+  std::cout << "\nconnSlot:= " << std::to_string(connSlot) <<
+            " neuronSlot:= " << std::to_string(neuronSlot) << 
+            " signalSlot:= " << std::to_string(signalSlot) << std::endl;
+
+
+  std::cout << '\n';
+  connections.printConnectionFromIndex(connSlot);
   std::cout << std::endl;
-  neuronRef = m_neuronPool[neuronSlot];
-  neurons.printNeuron(neuronRef);
+
+  neurons.printNeuronFromIndex(neuronSlot);
+  std::cout << '\n';
+
+  srb.printSignalFromIndex(signalIdx);
+
   std::cout << std::endl;
+
+  std::cout << "\nGOOD TO THIS POINT - EVERYTHING AS EXPECTED\n";
 
   //show incoming and outgoing signals first entries - which should be empty fakes
-  std::cout << "\nUsing neuronRef";
-  std::cout << "\nneuronRef.incomingSignals[0]:= " << 
-    std::to_string((neuronRef.incomingSignals[0])->actionTime) << std::endl;
-
-  std::cout << "\nneuronRef.outgoingSignals[0]:= " << 
-    std::to_string((neuronRef.outgoingSignals[0])->temporalDistanceToTarget) << std::endl;
-
-  std::cout << "\nUsing m_neuronPool[0]";
-  std::cout << "\nm_neuronPool[0].incomingSignals[0]:= " << 
-    std::to_string(m_neuronPool[0].incomingSignals[0]->actionTime) << std::endl;
-
-  std::cout << "\nm_neuronPool[0]].outgoingSignals[0]:= " << 
-    std::to_string(m_neuronPool[0].outgoingSignals[0]->temporalDistanceToTarget) << std::endl;
+  std::cout << "\nUsing neuron[0]  - should see first slot empty fake signals & connections";
+  std::cout << "\nFirst neuron index into signalPool\n";
+  
+  // std::cout << "\nneuronPtr->incomingSignals[0]:= " << 
+  // std::to_string(neuronPtr->incomingSignals[0]->actionTime) << std::endl;
+  
+  // neuronPtr = &m_neuronPool[neuronSlot];
 
 
+  std::cout << "\nFirst neuron first signal slot\n";
+  srb.printSignalFromIndex(m_neuronPool[0].incomingSignals[0]);
 
-  // std::cout << "Type ids for the above refs..\n";
-  // nothing useful from the name.
-  // std::cout << "connRef: " << typeid(connRef).name() << std::endl;
-  // std::cout << "neuronRef: " << typeid(neuronRef).name() << std::endl;
-
-  // std::cout << "\n*** Should be first neuron in the pool...\n";
-  // neurons.printNeuron(m_neuronPool[0]);
-  // std::cout << std::endl;
+  std::cout << "\nFirst neuron first connection slot\n";
+  connections.printConnectionFromIndex(m_neuronPool[0].outgoingSignals[0]);
+  std::cout << "\n";
+  
 
 
   // SRB is different as it can wrap  
@@ -137,37 +153,40 @@ int main ()
       nextSignalSlot = ++currentSignalSlot; 
   }
   // srb is a vector of signal::Signal structs - returns ref to the struct
-  signalRef = m_srb[nextSignalSlot];
+  // signalPtr= &m_srb[nextSignalSlot];
+  // !!! no more ptrs when vectors are in use
 
   std::cout << "Conn/Neuron slots assigned: Conn:= " << std::to_string(connSlot) << " Neuron: = " <<
       std::to_string(neuronSlot) << "\n";
   std::cout << "Signal slot assigned:= " << std::to_string(nextSignalSlot) << std::endl;
 
-  std::cout<<"\nNeuron refractory in slot: = " << std::to_string(m_neuronPool[0].refractoryEnd) << "\n";
-
   // all three elements are now addressed by a Ref from their respective pools
   // vector[x] returns ref to the element rather than making a copy
-  // These should all be the filles.
+  // These should all be the fillers.
+
+  connIdx = connSlot;
+  neuronIdx = neuronSlot;
+  signalIdx = 1;
 
   std::cout << "\n****** Print three fillers from pool slot 0 \n";
   //xxxRef are the filler values inserted by the constructor - they are all the same in each pool
-  connections.printConnection(connRef);
+  connections.printConnectionFromIndex(connIdx);
    std::cout << std::endl;
-  neurons.printNeuron(neuronRef);
+  neurons.printNeuronFromIndex(neuronIdx);
   std::cout << std::endl;
   // std::cout<<"Neuron current slot after assignment: = " << std::to_string(connSlot) << std::endl;
-  srb.printSignal(signalRef);
+  srb.printSignalFromIndex(signalIdx);
   std::cout << "**********\n";
 
   // build the first connection
   // first get a neuron by asking Neurons to provision a neuron.
-  // we already have one in neuronRef.
+  // we already have one in neuronIdx.
   // First set up the connection.
-  connRef.targetNeuronSlot = currentNeuronSlot;
-  connRef.temporalDistanceToTarget = 5000;      // arbitrary
-  connRef.lastSignalOriginTime = 1;             // would be current clock value
-  connRef.stpWeight = 1000;                     // arbitrary
-  connRef.ltpWeight = 250;                      // arbitrary
+  m_connPool[connIdx].targetNeuronSlot = currentNeuronSlot;
+  m_connPool[connIdx].temporalDistanceToTarget = 5000;      // arbitrary
+  m_connPool[connIdx].lastSignalOriginTime = masterClock;   // would be current clock value
+  m_connPool[connIdx].stpWeight = 1000;                     // arbitrary
+  m_connPool[connIdx].ltpWeight = 250;                      // arbitrary
 
   // push this onto the target neuron outgoing connections queue
   // We only have one neuron [0] so we are going to use if for outgoing and
@@ -175,34 +194,34 @@ int main ()
 
   // Make sure neuron is out of refractory period so signals will enqueue
   // Master clock is set @ 1000
-  neuronRef.refractoryEnd = 200;
+
+  m_neuronPool[neuronIdx].refractoryEnd = 200;
 
 
   // neuronRef.outgoingSignals.push_back(&connRef);  // push a pointer onto the neuron outgoing signal vector
   // for this test put the element @ 1 - outgoing length now 2
 
   std::cout << "\n>>> ConnRef before we push it into neuron[0]:= \n";
-  connections.printConnection(connRef);
+  connections.printConnectionFromIndex(connIdx);
 
-  neuronRef.outgoingSignals[0] = &connRef;          
+  m_neuronPool[neuronIdx].outgoingSignals[0] = connIdx;          
   // This should leave the outgoing signal length @ 1
 
   std::cout << "\nAfter modifying outgoingSignals in neuron[0]\n";
-  neurons.printNeuron (neuronRef);
+  neurons.printNeuronFromIndex(neuronIdx);
 
-  // ? what is the type of outgoingSignals[0]?
-  std::cout << "\noutgoingSignal slot type: " << typeid(neuronRef.outgoingSignals[0]).name() << std::endl;
-
-  std::cout << "\nPrint outgoingSignal slot tempDist:= " << neuronRef.outgoingSignals[0]->temporalDistanceToTarget << std::endl;
+  
+  std::cout << "\nPrint outgoingSignal slot tempDist:= " << 
+            std::to_string(m_connPool[m_neuronPool[neuronIdx].outgoingSignals[0]].temporalDistanceToTarget) << std::endl;
 
   std::cout << "\nNewly enqueued conn to Neuron from connRef\n";
 
-  connections.printConnection(connRef);
+  connections.printConnectionFromIndex(m_neuronPool[neuronIdx].outgoingSignals[0]);
   std::cout <<std::endl;
 
   std::cout << "Retrieve and print from neuron outgoingSignals vector... \n";
   // std::cout << "Neuron[0].outgoingSignals[0]:=" << std::to_string((*(m_neuronPool[0].outgoingSignals[0])).temporalDistanceToTarget) << std::endl;
-  connections.printConnectionFromPointer(neuronRef.outgoingSignals[0]);
+  connections.printConnectionFromIndex(m_neuronPool[0].outgoingSignals[0]);
   //
   // For whatever reason the refence below does not work...have to use neuronRef to
   // get the correct answer.
@@ -227,7 +246,7 @@ int main ()
 
   int32_t futureSignalTime{1000};   // testing value beyond end of refractory period
 
-  if (masterClock > neuronRef.refractoryEnd)
+  if (masterClock > m_neuronPool[neuronIdx].refractoryEnd)
   { // worth enqueing the signal
 
     // SRB is different as it can wrap  
@@ -243,29 +262,28 @@ int main ()
         nextSignalSlot = ++currentSignalSlot; 
     }
 
-    // srb is a vector of signal::Signal structs - returns ref to the struct
-    signalRef = m_srb[nextSignalSlot];
+    // // srb is a vector of signal::Signal structs - returns ref to the struct
+    // signalPtr = &m_srb[nextSignalSlot];
+    // Just use the nextSignalSlot index into srg - don't bother with refs or pointers
 
     std::cout << "First signal slot allocated: " << std::to_string(nextSignalSlot) << "\n";
-    srb.printSignal(signalRef);
+    srb.printSignalFromIndex(nextSignalSlot);
     std::cout << std::endl;
 
-    signalRef.actionTime = 1100;     // beyond refractory end
-    signalRef.amplitude = tconst::cascadeThreshold + 1; // make signal large enough to cascade
+    m_srb[nextSignalSlot].actionTime = 1100;     // beyond refractory end
+    m_srb[nextSignalSlot].amplitude = tconst::cascadeThreshold + 1; // make signal large enough to cascade
     // ownership is used to ensure incomingSignal queues do not process the wrong signal if
     // the srb has wrapped and reused an old signal
-    signalRef.owner = neuronSlot; // remember neuron that owns the signal
+    m_srb[nextSignalSlot].owner = neuronSlot; // remember neuron that owns the signal
 
     std::cout << "Modified first signal slot: " << '\n';
-    srb.printSignal(signalRef);
+    srb.printSignalFromIndex(nextSignalSlot);
     std::cout << std::endl;
 
     // for testing push the signal onto neuron[0]
     // node vector queues are always pointers, never the underlying structure
 
-    neuronRef.incomingSignals.push_back(&signalRef);
-
-
+   m_neuronPool[neuronIdx].incomingSignals.push_back(nextSignalSlot);
 
     //
     // at this point we should have a connection pointing to the same node - ok for testing
@@ -278,15 +296,17 @@ int main ()
 
     std::cout << "\nShow neuron entries before we scan\n";
 
-    neuron::Neuron tempNeuronRef = m_neuronPool[0];
+    // neuron::Neuron* tempNeuronPtr = &m_neuronPool[0];
+    // No more pointers to vectors
+    int32_t tempNeuronIdx = 0;
     std::cout << "\nNeuron [0]\n";
-    std::cout << "Refractory end: " << std::to_string(m_neuronPool[0].refractoryEnd) << std::endl;
-    neurons.printNeuron(tempNeuronRef);
+    std::cout << "Refractory end: " << std::to_string(m_neuronPool[tempNeuronIdx].refractoryEnd) << std::endl;
+    neurons.printNeuronFromIndex(tempNeuronIdx);
 
-    tempNeuronRef = m_neuronPool[1];
+    tempNeuronIdx = 1;
     std::cout << "Neuron [1]\n";
-    std::cout << "Refractory end: " << std::to_string(m_neuronPool[1].refractoryEnd) << std::endl;
-    neurons.printNeuron(tempNeuronRef);
+    std::cout << "Refractory end: " << std::to_string(m_neuronPool[tempNeuronIdx].refractoryEnd) << std::endl;
+    neurons.printNeuronFromIndex(tempNeuronIdx);
 
     neurons.scanNeuronsForSignals();
   }

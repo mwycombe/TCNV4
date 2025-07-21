@@ -10,11 +10,15 @@
 
 // definitions are global
 std::vector<neuron::Neuron> m_neuronPool{}; // allocated by constructor
-std::int32_t currentNeuronSlot{-1};         // forces start @ 0
+std::int32_t currentNeuronSlot{-1};         // forces allocation to start @0. 
 std::int32_t neuronPoolCapacity{};          // filled in by constructor
 
+// other pools
+extern std::vector<signal::Signal> m_srb;               // common signal ring buffer pool
+extern std::vector<connection::Connection> m_connPool;  // common connection pool
+
 // external globlals
-extern int32_t masterClock;
+ int32_t masterClock{0};
 
 int32_t cascadeAccumulator {0};             // used to accumulate effective neuron signal.
 int32_t aggregationDistance{0};             // used to check signal time for aggregation.
@@ -80,7 +84,7 @@ namespace neurons
 {
     class Neurons {
 
-        // create Connections & Neurons for reference  so can can call public routines
+        // create Connections & Neurons for reference so can can call public routines
         
         conns::Connections connObject;
         srb::SignalRingBuffer signalObject;
@@ -121,57 +125,103 @@ namespace neurons
                 // first create minimal signal queue and connection queue vectors
                 // use impossible values that will never be processed
             
-                std::vector<signal::Signal*> incomingSignals;
-                incomingSignals.reserve(1);
+                std::cout << "\n>>>>>>>>>>>>>>NEURONS POOL SETUP\n\n";
+
+                // create  class objects to support printing
+                conns::Connections connObj = conns::Connections();
+                srb::SignalRingBuffer srbObj = srb::SignalRingBuffer();
+
+
+                // std::vector<signal::Signal*> incomingSignals;
+                // incomingSignals.reserve(1);
                 
                 // incoming.push_back(&emptySignal);    // force vector allocation with a ptr
 
-                std::vector<connection::Connection*> outgoingSignals;
+                // std::vector<connection::Connection*> outgoingSignals;
+                // outgoingSignals.reserve(1);
+
+                std::vector<int32_t> incomingSignals;
+                std::vector<int32_t> outgoingSignals;
+
+                incomingSignals.reserve(1);
                 outgoingSignals.reserve(1);
 
-                signal::Signal emptySignal{INT32_MAX,1000,0};
-                connection::Connection emptyConnection 
-                {
-                    INT32_MAX, INT32_MAX,INT32_MAX,0,0
-                };
-                incomingSignals.push_back(&emptySignal);
-                outgoingSignals.push_back(&emptyConnection);   // Force vector allocation wih a ptr
+                incomingSignals.push_back(0);   // point to proto signal
+                outgoingSignals.push_back(0);   // point to proto connection
 
-                std::cout << "Empty entries for neuron allocation:\n";
+                std::cout << "\nEmpty signal vectors created\n";
 
-                std::cout << "\nincoming[0] actionTime:= " << std::to_string(incomingSignals[0]->actionTime);
-                std::cout << "\noutgoing[0] temporalDistance:= " << std::to_string(outgoingSignals[0]->temporalDistanceToTarget) << std::endl;
+                // Both signal vectors are now initialized to 0, pointing to the proto element in the pool
 
-                int32_t refractoryEnd = INT32_MAX;      // They should never process
+                std::cout << "Empty entries for neuron allocation:\n\n";
+
+                // See what's been pushed into signal vectors
+                std::cout << "\nWhat was pushed onto proto vectors?\n";
+                srbObj.printSignalFromIndex(incomingSignals[0]);
+                connObj.printConnectionFromIndex(outgoingSignals[0]);
+
+
+                // std::cout << "\nincoming[0] actionTime:= " << std::to_string(incomingSignals[0]->actionTime);
+                // std::cout << "\noutgoing[0] temporalDistance:= " << std::to_string(outgoingSignals[0]->temporalDistanceToTarget) << std::endl;
+
+                int32_t refractoryEnd = INT32_MAX;      // These neurons should never process
 
                 // This shouldl populate the struct with the provided variables.
-                neuron::Neuron emptyNeuron 
-                {
-                    incomingSignals,      // length one vector
-                    outgoingSignals,      // length one vector
-                    refractoryEnd   // refractory end is now - neuron will process and enqueue
-                                    // set to some future clock when neuron cascades
-                };
+                std::cout << "\nChange how empty neuron is initialized. \n";
+
+                // Much simpler neuron with signal vectors of int32_t's not pointers
+                // which point to the appropriate slot in the srb and connpools.
+                // No more vector pointer volatility
+                neuron::Neuron emptyNeuron{};
+                // neuron::Neuron* emptyNeuronPointer = {&emptyNeuron};
+                emptyNeuron.incomingSignals = incomingSignals;
+                emptyNeuron.outgoingSignals = outgoingSignals;
+                emptyNeuron.refractoryEnd = refractoryEnd;
 
                 // What's in the empty neuron?
                 std::cout << "\nPrint empty neuron\n";
-                printNeuron(emptyNeuron);
-                std::cout << std::endl;
-                std::cout << "\nincoming[0]:= " << std::to_string(incomingSignals[0]->actionTime);
-                std::cout << "\noutgoing[0]:= " << std::to_string(outgoingSignals[0]->temporalDistanceToTarget) << std::endl;
 
-                std::cout << "\nWhat's in the empty neuron?\n";
-                std::cout << "\nincomingSignal:= " << std::to_string(emptyNeuron.incomingSignals[0]->actionTime) << std::endl;
-                std::cout << "\noutgoingSignal:= " << std::to_string(emptyNeuron.outgoingSignals[0]->temporalDistanceToTarget) << std::endl;
+                printNeuronFromRef(emptyNeuron);
+                std::cout << std::endl;
+                // std::cout << "\nincoming[0]:= " << std::to_string(incomingSignals[0]->actionTime);
+                // std::cout << "\noutgoing[0]:= " << std::to_string(outgoingSignals[0]->temporalDistanceToTarget) << std::endl;
+
+                std::cout << "\nWhat's in the empty neuron signals?\n";
+
+                std::cout << "\nFirst empty incoming signal\n";
+                std::cout << "\nFirst empty signal contents:= " << std::to_string(emptyNeuron.incomingSignals[0]);
+                srbObj.printSignalFromIndex(emptyNeuron.incomingSignals[0]);
+
+                std::cout << "\nFirst outgoing signal\n";
+                connObj.printConnectionFromIndex(emptyNeuron.outgoingSignals[0]);
                 
                 for (int i = 0; i < m_neuronPool.capacity(); ++i) {
                     m_neuronPool.push_back(emptyNeuron);
                 }
 
-                std::cout << "\nIs empty neuron[0] still good?\n";
-                std::cout << "\nInput[0]:= " << std::to_string(m_neuronPool[0].incomingSignals[0]->actionTime);
-                std::cout << "\nOutgoing[0]:= " << std::to_string(m_neuronPool[0].outgoingSignals[0]->temporalDistanceToTarget) << std::endl;
+                std::cout << "\nIs empty neuron[0] still good in first neuron?\n";
+                signalObject.printSignalFromIndex(m_neuronPool[0].incomingSignals[0]);
                 std::cout << std::endl;
+                connObject.printConnectionFromIndex(m_neuronPool[0].outgoingSignals[0]);
+                std::cout << std::endl;
+
+                std::cout << "\nFirst empty neuron signals after building the pool\n";
+                
+                std::cout << "\nDon't use ptrs to first neuron in pool\n";
+
+                std::cout << "\nEmpty neuron[0] signals?\n";
+                std::cout << "\nFirst incoming signal\n";
+                std::cout << "\nFirst incomingSignal index:= " << m_neuronPool[0].incomingSignals[0];
+                srbObj.printSignalFromIndex(m_neuronPool[0].incomingSignals[0]);
+
+                std::cout << "\nFirst outgoing signal\n";
+                std::cout << "\nFirst outgoingSginal index: } " << m_neuronPool[0].outgoingSignals[0];
+                connObj.printConnectionFromIndex(m_neuronPool[0].outgoingSignals[0]);
+                std::cout << "\nCreated " << std::to_string(poolSize) << " empty neurons.\n" << '\n';
+
+                std::cout << "\n<<<<<<<<<<<<<END NEURON POOL SETUP\n\n";
+                
+ 
             }
 
             // Default constructor
@@ -182,7 +232,16 @@ namespace neurons
                 ; // allocated vector heap will be freed when they go out of scope.
             }
 
-            void printNeuron(neuron::Neuron& neuronRef)
+            void printNeuronFromIndex(int32_t nidx)
+            {   
+                std::cout << "\nNeuron Index:= " << std::to_string(nidx);
+                std::cout << "\nincomingSignals capacity:= " << 
+                    std::to_string(m_neuronPool[nidx].incomingSignals.capacity());
+                std::cout << "\noutgoingSignals capacity:= " <<
+                    std::to_string(m_neuronPool[nidx].outgoingSignals.capacity());
+                std::cout << "\nrefractoryEnd:= " << std::to_string(m_neuronPool[nidx].refractoryEnd) << '\n';
+            }
+            void printNeuronFromRef(neuron::Neuron& neuronRef)
             {
                 std::cout << "Neuron: incomingSignals:= " 
                         << std::to_string(neuronRef.incomingSignals.capacity())
@@ -191,6 +250,15 @@ namespace neurons
                             << std::endl;
                 std::cout << "refractoryEnd:= " << std::to_string(neuronRef.refractoryEnd)
                             << std::endl;
+            }
+
+            void printNeuronFromPointer(neuron::Neuron* neuronPtr)
+            {
+                std::cout << "\nNeuron: incomingSignals:= " <<
+                        std::to_string(neuronPtr->incomingSignals.capacity()) <<
+                        "\noutgoingSignals:= " << std::to_string(neuronPtr->outgoingSignals.capacity()) <<
+                        "\nrefractoryEnd:= " << std::to_string(neuronPtr->refractoryEnd) <<
+                    std::endl;
             }
 
             void scanNeuronsForSignals()
@@ -236,7 +304,7 @@ namespace neurons
                         std::cout << " Processing non-refractory neuron:= " << std::to_string(neuronBeingProcessed) << "\n";
                         if ( ((nRef.incomingSignals.empty()) ||
                                 ( nRef.incomingSignals.size() == 1 && 
-                                    nRef.incomingSignals[0]->actionTime == INT32_MAX))  )
+                                    m_srb[nRef.incomingSignals[0]].actionTime == INT32_MAX))  )
                         {
                             ;   // skip the neuron
                         }
@@ -245,25 +313,25 @@ namespace neurons
                             // Step through the incoming signals and broadcast them
                             // Remember neuron vectors hold pointer to signal
                             cascadeAccumulator = 0;
-                            for (signal::Signal* sRef : nRef.incomingSignals)
+                            for (int32_t sRef : nRef.incomingSignals)
                             {
                                 // Just use the simple signal size for now - without  stp/ltp
                                 // We aggregate existing prior signals for aggretation window width
                                 // Have to scan the complete signal queue as they are not sorted by time of action
-                                aggregationDistance = masterClock - sRef->actionTime;
+                                aggregationDistance = masterClock - m_srb[sRef].actionTime;
                                 switch (aggregationDistance)
                                 {
-                                    case -5:    cascadeAccumulator += sRef->amplitude / 32;
+                                    case -5:    cascadeAccumulator += m_srb[sRef].amplitude / 32;
                                         break;
-                                    case -4:    cascadeAccumulator += sRef->amplitude / 16;
+                                    case -4:    cascadeAccumulator += m_srb[sRef].amplitude / 16;
                                         break;
-                                    case -3:    cascadeAccumulator += sRef->amplitude / 8;
+                                    case -3:    cascadeAccumulator += m_srb[sRef].amplitude / 8;
                                         break;
-                                    case -2:    cascadeAccumulator += sRef->amplitude / 4;
+                                    case -2:    cascadeAccumulator += m_srb[sRef].amplitude / 4;
                                         break;
-                                    case -1:    cascadeAccumulator += sRef->amplitude / 2;
+                                    case -1:    cascadeAccumulator += m_srb[sRef].amplitude / 2;
                                         break;
-                                    case 0:     cascadeAccumulator += sRef->amplitude;
+                                    case 0:     cascadeAccumulator += m_srb[sRef].amplitude;
                                         break;                  
                                 }
                             }
@@ -282,7 +350,7 @@ namespace neurons
                     // This is another candidate to merge inline and avoid an expensive
                     // method call for every neuron processed. Again, done for speed.
                     {
-                        // Only purger if there is enough signals to bother with
+                        // Only purge if there is enough signals to bother with
                         if (m_neuronPool[neuronBeingProcessed].incomingSignals.size() > tconst::purgeThreshold)
                         {
                             youngestSignal = 0;     // youngest is the signal wih the biggest clock value
@@ -291,8 +359,8 @@ namespace neurons
                             {
                                 // Capture the largest clock value we can find on the incoming queue of the neuron
                                 youngestSignal = 
-                                        (m_neuronPool[neuronBeingProcessed].incomingSignals[i]->actionTime > youngestSignal) ? 
-                                        m_neuronPool[neuronBeingProcessed].incomingSignals[i]->actionTime : youngestSignal;
+                                    (m_srb[m_neuronPool[neuronBeingProcessed].incomingSignals[i]].amplitude > youngestSignal) ? 
+                                    m_srb[m_neuronPool[neuronBeingProcessed].incomingSignals[i]].amplitude : youngestSignal;
                             }
 
                             if (youngestSignal < (masterClock - aggregationDistance))
@@ -344,8 +412,8 @@ namespace neurons
                     youngestSignal = 0;
                     for (int32_t i = 0; i<m_neuronPool[neuronBeingProcessed].incomingSignals.size(); ++i)
                     {
-                        (m_neuronPool[neuronBeingProcessed].incomingSignals[i]->actionTime > youngestSignal) ? 
-                                m_neuronPool[neuronBeingProcessed].incomingSignals[i]->actionTime : youngestSignal;
+                        (m_srb[m_neuronPool[neuronBeingProcessed].incomingSignals[i]].actionTime > youngestSignal) ? 
+                            m_srb[m_neuronPool[neuronBeingProcessed].incomingSignals[i]].actionTime : youngestSignal;
                     }
 
                     if (youngestSignal > (masterClock - aggregationDistance))
