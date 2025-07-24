@@ -34,6 +34,7 @@ namespace conns
     signal::Signal signalRef;
     int32_t targetNeuronId;     // used when enqueueing new signals
     int32_t neuronSignaled;     // used for tracing which nodes get a connection signal
+    int32_t signalEventTime;    // used for nextEvent tracking when generating signals
 
     srb::SignalRingBuffer srbObj = srb::SignalRingBuffer();     // used for printouts
     /**
@@ -118,7 +119,7 @@ namespace conns
                 m_connPool.push_back(blankConnection);
             }
 
-            std::cout << "\nCreated " << std::to_string(connectionPoolCapacity) << " empty connections\n";
+            // std::cout << "\nCreated " << std::to_string(connectionPoolCapacity) << " empty connections\n";
             
         }
         
@@ -212,17 +213,40 @@ namespace conns
                 std::cout << "\noutgoing targetNeuronSlot:= " << std::to_string(m_connPool[connIdx].targetNeuronSlot);
                 if (m_connPool[connIdx].targetNeuronSlot >= 0)      // not an empty proto connection
                 {
-                    std::cout << "\nDistance vs. refractoryEnd:= " << 
-                        std::to_string(m_connPool[connIdx].temporalDistanceToTarget) << " vs. " <<
+                    std::cout << "\nTrue distance vs. refractoryEnd:= " << 
+                        std::to_string(m_connPool[connIdx].temporalDistanceToTarget + masterClock) << " vs. " <<
                         std::to_string(m_neuronPool[neuronId].refractoryEnd);
+
                     // now check if target is refractory - ergo accept no signal for refractory period
-                    if ( m_connPool[connIdx].temporalDistanceToTarget >
+                    // Have to add masterClock to get actual real clock time as connection temporalDistance is always relative
+
+                    if ( m_connPool[connIdx].temporalDistanceToTarget + masterClock >
                         m_neuronPool[neuronId].refractoryEnd )      
                         {
-                            // only generate a signal if connection clock is beyond refractory end
+                            // only generate a signal if connection real clock is beyond refractory end
                             // otherwise no point in generating a signal
 
-                            neuronSignaled = generateASignal(connIdx);
+                            signalEventTime = generateASignal(connIdx); // receive signal event time back
+
+                            // Every time we push a signal to a neuron we have to check the target neuron nextEvent.
+                            // But this would become very, very expensive if there were lots of signals pushed to the same
+                            // neuron.
+                            // Not True! Each signal push just has to check itself against the nextEvent to
+                            // see if this is older and update neuron nextEvent and globalNextEvent accordingly.
+                            // These should be very cheap tests                            
+
+                            m_neuronPool[neuronId].nextEvent = 
+                                    (signalEventTime >= m_neuronPool[neuronId].nextEvent) ?
+                                        m_neuronPool[neuronId].nextEvent : signalEventTime;
+
+                            // Save the next actionTime if it's smaller than the current globalNextEvent.
+                            // This should avoid bothering with the scanning the incoming signals queue of every neuron
+                            // to set their nextEvent and just run through any non-empty incoming signals queue.
+
+
+                            globalNextEvent = (signalEventTime >= globalNextEvent) ?
+                                                    globalNextEvent : signalEventTime;
+
 
                             std::cout << "\nSignal generated to neuron:= " << std::to_string(neuronSignaled);
                         }
@@ -248,8 +272,17 @@ namespace conns
                 * 
                 * @details first allocate a signal slot; then fill it's values; then enqueue to target
                 * neuron incomingSignals queue vector
+                * Any signal being created must be at least greater than the current masterClock and
+                * the current masterClock was set from the globalNextEvent - and also the nextEvent for 
+                * neuron for whom we are generating the signal...so we should adjust the nextEvent for
+                * the targetNeuron to the generated signal action time plus we should upodate the
+                * globalNextEvent if this signal is older i.e. clock time is less. 
+                * We should also update the nextEvent time for the targetNeuron if the new signal is less
+                * than the current nextEvent time. If this is the first signal this will work as the 
+                * default nextEvent time is INT32_MAX.
+                * And the adjust globalNextEvent if necesary. 
                 * 
-                * @return slot number of the target neuron - used for tracing
+                * @return event time of signal generated for nextEvent tracking
                 * 
                 */
 
@@ -265,22 +298,26 @@ namespace conns
                     nextSignalSlot = ++currentSignalSlot; 
                 }
                 
-                // srb is a vector of signal::Signal structs - returns ref to the struct
+                // srb is a vector of signal::Signal structs 
+                // Use return of index to next srb slot - pseudo_allocation.
                  
                 // fill in the signal values before enqueueing to the target
                 m_srb[nextSignalSlot].actionTime = masterClock + m_connPool[connIdx].temporalDistanceToTarget;   // relative distance
                 m_srb[nextSignalSlot].amplitude = m_connPool[connIdx].stpWeight + m_connPool[connIdx].ltpWeight;  // moderated amplitudes
                 m_srb[nextSignalSlot].owner = m_connPool[connIdx].targetNeuronSlot;                // target is the signal owner
                 
+                // Update the last signal time for this connection - used for stp/ltp aging.
+                // No comparison needed as any prior signals would have been older
+                m_connPool[connIdx].lastSignalOriginTime = masterClock;
+
                 std::cout << "\nCreated this signal:.... for nextSignalSlot:= " << std::to_string(nextSignalSlot);
                 srbObj.printSignalFromIndex(nextSignalSlot);
 
                 signal::Signal sigRef = m_srb[nextSignalSlot];  // this should point to the signal we are building
-                // srbObj.printSignalFromRef(signalRef);   // This should ref the same signal
+                // srbObj.printSignalFromRef(signalRef);        // This should ref the same signal
                 
                 // targetNeuronId = ptr->targetNeuronSlot; // this is where to enqueue the signal
                 // m_neuronPool[targetNeuronId].incomingSignals.push_back(&signalRef);
-                // skip the extra assignment
                 // incomingSignals is a vector of pointers to Signal structs
                 
                 // m_neuronPool[ptr->targetNeuronSlot].incomingSignals.push_back(&signalRef);
@@ -288,23 +325,31 @@ namespace conns
 
                 std::cout << "\nAbout to push signal to targetNode: = " << std::to_string(m_connPool[connIdx].targetNeuronSlot);
 
+                // incomingSignals if a vector of indexes into the srb buffer
                 m_neuronPool[m_connPool[connIdx].targetNeuronSlot].incomingSignals.push_back(nextSignalSlot);
 
-                // Save the next actionTime if it's smaller than the current globalNextEvent.
-                // This should avoid bothering with the scanning the incoming signals queue of every neuron
-                // to set their nextEvent and just run through and non-empty incoming signals queue.
-                globalNextEvent = (sigRef.actionTime >= globalNextEvent) ?
-                                        globalNextEvent : sigRef.actionTime;
+                // Now we have to update the neuron nextEvent and the globalNextEvent to the absolute future time
 
-                // Every time we push a signal to a neuron we have to check the target neuron nextEvent.
-                // But this would become very, very expensive if there were lots of signals pushed to the same
-                // neuron.
-                // Do one giant pass over all neurons when we have finished scanning all of them. 
-                // We have to compute the nextEvent for all of the target neurons not the one that has cascaded
-                // and is generating signals.
-                // Ergo make on sweep after all neurons have been scanned for signal generation and only
-                // process neurons that have any incomingSignals.
-            
+                m_neuronPool[m_connPool[connIdx].targetNeuronSlot].nextEvent =
+                    (m_neuronPool[m_connPool[connIdx].targetNeuronSlot].nextEvent <= sigRef.actionTime + masterClock) ?
+                       m_neuronPool[m_connPool[connIdx].targetNeuronSlot].nextEvent  :  // Leave it alone
+                         sigRef.actionTime + masterClock;                               // else update it new lower value 
+
+                // At this point the nextEvent for the neuron we pushed to should be update for the actionTime
+                // in the signal just pushed. This is a better alternative than scanning the signals.
+
+                // And now check globalNextEvent
+                (globalNextEvent < sigRef.actionTime + masterClock) ? globalNextEvent : sigRef.actionTime + masterClock;
+
+                // This is already done by generateSignals every time it calls generateASignal
+
+                // m_neuronPool[m_connPool[connIdx].targetNeuronSlot].nextEvent =
+                //     (m_neuronPool[m_connPool[connIdx].targetNeuronSlot].nextEvent < m_srb[nextSignalSlot].actionTime) ?
+                //      m_neuronPool[m_connPool[connIdx].targetNeuronSlot].nextEvent : // don't change nextEvent if lower
+                //      m_srb[nextSignalSlot].actionTime;                              // update nextEvent
+
+                // We could also test and update globalNextEvent at this point if we wanted.
+
                 std::cout << "\nPrint incoming signals for targetNode:= " << std::to_string(m_connPool[connIdx].targetNeuronSlot);
 
                 for (int32_t idx : m_neuronPool[m_connPool[connIdx].targetNeuronSlot].incomingSignals)
@@ -314,19 +359,9 @@ namespace conns
                 }
                 
                 
-                return m_connPool[connIdx].targetNeuronSlot;
+                return m_srb[nextSignalSlot].actionTime;    // this is the time for this signal event
             }
-            // static int *target_neurons_origin;    // 32 bit pointer to the target
-            // static int *temporal_distance_origin; // relative clock distance to target
-            // static short *signal_size_origin;     // current size of signal for this connection/synapse - base is 1000
-            // static short *stp_accumulator_origin; // stp accumulated level
-            // static short *ltp_accumulator_origin; // ltp accumulated level
-            // static int *last_signal_clock_origin; // used to determine how much STP & LTP decay has occurred
-            // static int next_connection_slot;      // used to allocate connections slots during building of the
-            //                                       // neuron connection networks
-            // he signal size will be modified by STP and LTP and any other memory and enhancement actions
-            // static int connection_count;                 // number of connections created
-            
+
             /**
             * @brief   Given that all pools and elements are public we should be able to avoid
             * using these getter/setter functions - speed is the goal and avoiding function

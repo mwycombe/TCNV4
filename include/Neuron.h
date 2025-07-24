@@ -42,6 +42,7 @@ namespace neuron
      * July 2025 incoming/outgoing signal pointers too volatile - use index number
      * into the srb and connpools as the remain resolvable even if vectors move around
      * in the heap.
+     * 
      */
     
 

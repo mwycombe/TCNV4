@@ -87,7 +87,9 @@ int32_t youngestSignal{0};                  // used for purging incoming signals
     So, back to using indexes into the pools, the presumption being that even if the vectors are moved around
     the compiler ensures the indexes always point to the current correct location in the vector no matter
     where they have been located in storage. Also, indexes are small and fast - 32 bits vs. 64 bits for pointers.
-*/
+
+    July 2025: When we are processing signals they are handled at the current masterClock time that was set from
+    globalNextEvent - which was gleaned from all the signals. 
 
 
 
@@ -183,11 +185,11 @@ namespace neurons
                 incomingSignals.push_back(0);   // point to proto signal
                 outgoingSignals.push_back(0);   // point to proto connection
 
-                std::cout << "\nEmpty signal vectors created\n";
+                // std::cout << "\nEmpty signal vectors created\n";
 
                 // Both signal vectors are now initialized to 0, pointing to the proto element in the pool
 
-                std::cout << "Empty entries for neuron allocation:\n\n";
+                // std::cout << "Empty entries for neuron allocation:\n\n";
 
                 // See what's been pushed into signal vectors
                 std::cout << "\nWhat was pushed onto proto vectors?\n";
@@ -199,8 +201,8 @@ namespace neurons
                 // std::cout << "\noutgoing[0] temporalDistance:= " << std::to_string(outgoingSignals[0]->temporalDistanceToTarget) << std::endl;
 
                 int32_t refractoryEnd = INT32_MAX;      // These neurons should never process
-                int32_t nextEvent = INT32_MIN;          // Ensure very old oldest signal clock
-                                                        // Always less then masterClock which starts a 0
+                int32_t nextEvent = INT32_MAX;          // Ensure never yet seen signal clock
+                                                        // Always greater than any signal to be created or processed.
 
                 // This shouldl populate the struct with the provided variables.
                 std::cout << "\nChange how empty neuron is initialized. \n";
@@ -216,46 +218,46 @@ namespace neurons
                 emptyNeuron.refractoryEnd = refractoryEnd;
 
                 // What's in the empty neuron?
-                std::cout << "\nPrint empty neuron\n";
+                // std::cout << "\nPrint empty neuron\n";
 
                 printNeuronFromRef(emptyNeuron);
-                std::cout << std::endl;
+                // std::cout << std::endl;
                 // std::cout << "\nincoming[0]:= " << std::to_string(incomingSignals[0]->actionTime);
                 // std::cout << "\noutgoing[0]:= " << std::to_string(outgoingSignals[0]->temporalDistanceToTarget) << std::endl;
 
-                std::cout << "\nWhat's in the empty neuron signals?\n";
+                // std::cout << "\nWhat's in the empty neuron signals?\n";
 
-                std::cout << "\nFirst empty incoming signal\n";
-                std::cout << "\nFirst empty signal contents:= " << std::to_string(emptyNeuron.incomingSignals[0]);
+                // std::cout << "\nFirst empty incoming signal\n";
+                // std::cout << "\nFirst empty signal contents:= " << std::to_string(emptyNeuron.incomingSignals[0]);
 
-                srbObj.printSignalFromIndex(emptyNeuron.incomingSignals[0]);
+                // srbObj.printSignalFromIndex(emptyNeuron.incomingSignals[0]);
 
-                std::cout << "\nFirst outgoing signal\n";
-                connObj.printConnectionFromIndex(emptyNeuron.outgoingSignals[0]);
+                // std::cout << "\nFirst outgoing signal\n";
+                // connObj.printConnectionFromIndex(emptyNeuron.outgoingSignals[0]);
                 
                 for (int i = 0; i < m_neuronPool.capacity(); ++i) {
                     m_neuronPool.push_back(emptyNeuron);
                 }
 
-                std::cout << "\nIs empty neuron[0] still good in first neuron?\n";
-                signalObject.printSignalFromIndex(m_neuronPool[0].incomingSignals[0]);
-                std::cout << std::endl;
-                connObject.printConnectionFromIndex(m_neuronPool[0].outgoingSignals[0]);
-                std::cout << std::endl;
+                // std::cout << "\nIs empty neuron[0] still good in first neuron?\n";
+                // signalObject.printSignalFromIndex(m_neuronPool[0].incomingSignals[0]);
+                // std::cout << std::endl;
+                // connObject.printConnectionFromIndex(m_neuronPool[0].outgoingSignals[0]);
+                // std::cout << std::endl;
 
-                std::cout << "\nFirst empty neuron signals after building the pool\n";
+                // std::cout << "\nFirst empty neuron signals after building the pool\n";
                 
-                std::cout << "\nDon't use ptrs to first neuron in pool\n";
+                // std::cout << "\nDon't use ptrs to first neuron in pool\n";
 
-                std::cout << "\nEmpty neuron[0] signals?\n";
-                std::cout << "\nFirst incoming signal\n";
-                std::cout << "\nFirst incomingSignal index:= " << m_neuronPool[0].incomingSignals[0];
-                srbObj.printSignalFromIndex(m_neuronPool[0].incomingSignals[0]);
+                // std::cout << "\nEmpty neuron[0] signals?\n";
+                // std::cout << "\nFirst incoming signal\n";
+                // std::cout << "\nFirst incomingSignal index:= " << m_neuronPool[0].incomingSignals[0];
+                // srbObj.printSignalFromIndex(m_neuronPool[0].incomingSignals[0]);
 
-                std::cout << "\nFirst outgoing signal\n";
-                std::cout << "\nFirst outgoingSginal index: } " << m_neuronPool[0].outgoingSignals[0];
-                connObj.printConnectionFromIndex(m_neuronPool[0].outgoingSignals[0]);
-                std::cout << "\nCreated " << std::to_string(poolSize) << " empty neurons.\n" << '\n';
+                // std::cout << "\nFirst outgoing signal\n";
+                // std::cout << "\nFirst outgoingSginal index: } " << m_neuronPool[0].outgoingSignals[0];
+                // connObj.printConnectionFromIndex(m_neuronPool[0].outgoingSignals[0]);
+                // std::cout << "\nCreated " << std::to_string(poolSize) << " empty neurons.\n" << '\n';
 
                 std::cout << "\n<<<<<<<<<<<<<END NEURON POOL SETUP\n\n";
                 
@@ -273,22 +275,22 @@ namespace neurons
             void printNeuronFromIndex(int32_t nidx)
             {   
                 std::cout << "\nNeuron Index:= " << std::to_string(nidx);
-                std::cout << "\nincomingSignals capacity:= " << 
-                    std::to_string(m_neuronPool[nidx].incomingSignals.capacity());
-                std::cout << "\noutgoingSignals capacity:= " <<
-                    std::to_string(m_neuronPool[nidx].outgoingSignals.capacity());
+                std::cout << "\nincomingSignals size:= " << 
+                    std::to_string(m_neuronPool[nidx].incomingSignals.size());
+                std::cout << "\noutgoingSignals size:= " <<
+                    std::to_string(m_neuronPool[nidx].outgoingSignals.size());
                 std::cout << "\nnextEvent:= " <<
                     std::to_string(m_neuronPool[nidx].nextEvent);
                 std::cout << "\nrefractoryEnd:= " << std::to_string(m_neuronPool[nidx].refractoryEnd) << '\n';
             }
             void printNeuronFromRef(neuron::Neuron& neuronRef)
             {
-                std::cout << "Neuron: incomingSignals:= " 
-                        << std::to_string(neuronRef.incomingSignals.capacity())
+                std::cout << "\nNeuron: incomingSignals:= " 
+                        << std::to_string(neuronRef.incomingSignals.size())
                         << std::endl;
-                std::cout << "outgoingSignals:= " << std::to_string(neuronRef.outgoingSignals.capacity())
+                std::cout << "outgoingSignals:= " << std::to_string(neuronRef.outgoingSignals.size())
                             << std::endl;
-                std::cout << "youngestSignal := " << std::to_string(neuronRef.nextEvent)
+                std::cout << "nextEvent := " << std::to_string(neuronRef.nextEvent)
                             << std::endl;            
                 std::cout << "refractoryEnd:= " << std::to_string(neuronRef.refractoryEnd)
                             << std::endl;
@@ -297,8 +299,8 @@ namespace neurons
             void printNeuronFromPointer(neuron::Neuron* neuronPtr)
             {
                 std::cout << "\nNeuron: incomingSignals:= " <<
-                        std::to_string(neuronPtr->incomingSignals.capacity()) <<
-                        "\noutgoingSignals:= " << std::to_string(neuronPtr->outgoingSignals.capacity()) <<
+                        std::to_string(neuronPtr->incomingSignals.size()) <<
+                        "\noutgoingSignals:= " << std::to_string(neuronPtr->outgoingSignals.size()) <<
                         "\nrefractoryEnd:= " << std::to_string(neuronPtr->refractoryEnd) <<
                     std::endl;
             }
@@ -312,12 +314,11 @@ namespace neurons
 
                 neuronBeingProcessed = -1;
 
-                masterClock = globalNextEvent;      // Always true when we are asked to scan neurons.
+                // masterClock = globalNextEvent;       // Always the next clock tick when we are asked to scan neurons.
+                globalNextEvent = INT32_MAX;             // This forces capture of some lower clock event
 
-                globalNextEvent = INT32_MAX;    // Ensure we capture the next lowest neuron event
-                                                // We capture this from each neuron signal queue as we process.
 
-                std::cout << "Starting neuron scan...\n";
+                std::cout << "\n\n...>>>>>>>>STARTING NEURON SCAN...<<<<<<<<\n";
 
                 for (neuron::Neuron nRef : m_neuronPool)
                 {
@@ -340,71 +341,35 @@ namespace neurons
 
                     //  track neuronId which is zero based and is vector slot number in m_neuronPool
 
-                    ++neuronBeingProcessed;     // Only way to count slots during a forEach
-
-                    // There is no need to do this scan of the signal queues for every neuron when we handle it.
-                    // Just look through the signal queues if they are non-empty.
-                    //
-                    // Regardless of whether there is any signals to be processed or not for each neuron
-                    // we adjust to nextEvent and globalNextEvent to keep track of the next time we need
-                    // to process.
-                    // Master clock is then advanced by the value recorded in globalNextEvent which is the 
-                    // lowest clock time from all of the available signals on all of the neurons.
-
-                    // if (nRef.incomingSignals.size() > 0)
-                    // {
-                    //     // There are some signals here to look through
-                    //     // We always check the incoming signal queue for every neuron as things may have
-                    //     // been queued up even though we were not and are not processing this neuron.
-                    //     // However incoming signals can never be queued up for a processing time prior to now
-                    //     // so it it always safe to re-scan the signals queue. It is always possible that some
-                    //     // earlier in clock time may have been queued to the neuron since we last scanned the  
-                    //     // incoming signals. They do not arrive in order and they are never sorted.
-
-                    //     nRef.nextEvent = INT32_MAX;     // Ensure we capture low event if just one signal
-
-                    //     for (int32_t sigIdx : nRef.incomingSignals)
-                    //     {
-                    //         if (m_srb[sigIdx].actionTime > masterClock)
-                    //         {
-                    //             nRef.nextEvent = (m_srb[sigIdx].actionTime >= nRef.nextEvent) ?
-                    //                                 nRef.nextEvent :
-                    //                                 m_srb[sigIdx].actionTime;
-                                                    
-                    //         }
-                    //     }
-                    //     // update globalNextEvent before we move on to the next neuron - to avoid another scan
-                    //     globalNextEvent = (globalNextEvent <= nRef.nextEvent) ?
-                    //                         globalNextEvent :
-                    //                         nRef.nextEvent;
-                    // }
-
-                    // No longer worth doing this....as we don't have any valid nextEvent entries
-
-                    // if (nRef.nextEvent > 0)
-                    // {
-                    //     std::cout << "Scanning neuron:= " << std::to_string(neuronBeingProcessed) << "\n";
-                    //      printNeuronFromRef(nRef);
-                    // }
-
+                    ++neuronBeingProcessed;     // Only way to count slots during a forEach 
 
                     if ( masterClock > nRef.refractoryEnd )
                     // only process neurons when they have exited refractory
                     {                    
-                        std::cout << " Processing non-refractory neuron:= " << 
+                        std::cout << "\nProcessing non-refractory neuron:= " << 
                             std::to_string(neuronBeingProcessed) << "\n";
+
+                        std::cout << "\nmasterClock:= " << std::to_string(masterClock);
+                        printNeuronFromRef(nRef);
+ 
                         std::cout << "\nincomingSignals size:= " << std::to_string(nRef.incomingSignals.size());
                         std::cout << "\nactionTime:= " << std::to_string(m_srb[nRef.incomingSignals[0]].actionTime);
                         if ( ((nRef.incomingSignals.empty()) ||
-                                ( nRef.incomingSignals.size() == 1 && 
-                                    m_srb[nRef.incomingSignals[0]].actionTime == INT32_MAX))  )
+                                ( m_srb[nRef.incomingSignals[0]].actionTime == INT32_MIN))  )
                         {
-                            ;   // skip the neuron
+                            // Skip proto signals or empty incoming queues that got purged
+                            std::cout << "\nSkip proto signal\n";   // skip the proto signal
+                            ;
                         }
                         else
                         {
                             // Step through the incoming signals and broadcast them
                             // Remember neuron vectors hold index to signal srb slot
+                            // Always capture the current nextEvent for the neuron being processed
+                            // Leave globalNextEvent alone if it's already lower i.e. older
+                            // globalNextEvent = (globalNextEvent <= m_neuronPool[neuronBeingProcessed].nextEvent) ?
+                            //     globalNextEvent : m_neuronPool[neuronBeingProcessed].nextEvent;
+
                             std::cout << "\nStart cascade accumulation....\n";
                             cascadeAccumulator = 0;
                             for (int32_t sRef : nRef.incomingSignals)
@@ -422,6 +387,9 @@ namespace neurons
                                 std::cout << "\nMaster clock & actionTime:= " << std::to_string(masterClock) <<
                                         " : " << std::to_string(m_srb[sRef].actionTime);
 
+                                // Processing note: all those that are at the same temporal distance inside
+                                // the aggregation window will all receive the same degradation.
+                                // Two signals @ -2 are as powerful as four signal @ -4
                                 if (m_srb[sRef].actionTime > INT32_MIN && m_srb[sRef].actionTime <= masterClock)
                                 {
                                     aggregationDistance = masterClock - m_srb[sRef].actionTime;
@@ -481,7 +449,8 @@ namespace neurons
                         }
                     }       // End of purge incoming signals scan
 
-                    ++neuronBeingProcessed; // step to next neuron slot
+                    // ++neuronBeingProcessed; // step to next neuron slot
+                    // This is already incremented at the start of the for-loop
                 }
                 
                 std::cout << "\nLast Neuron processed:= " << std::to_string(neuronBeingProcessed) << std::endl;
@@ -535,6 +504,9 @@ namespace neurons
                     {
                         // no signals that can ever contribute to cascade - so purge all
                         m_neuronPool[neuronBeingProcessed].incomingSignals.clear();
+                        // **** But reinstate incomingSignals[] to point to srb[0] 
+                        // So that subsequent pushes always leave incoming[0] pointing to proto signal
+                        m_neuronPool[neuronBeingProcessed].incomingSignals.push_back(0);
                     }
                 }
             }

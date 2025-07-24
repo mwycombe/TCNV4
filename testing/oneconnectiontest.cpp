@@ -11,6 +11,7 @@
 
 // *** temporary master clock for testing
 extern int32_t masterClock;
+extern int32_t globalNextEvent;
 inline int32_t oldestEvent {0};
 
 extern std::vector<connection::Connection> m_connPool;
