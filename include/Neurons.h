@@ -10,32 +10,32 @@
 
 // definitions are global
 std::vector<neuron::Neuron> m_neuronPool{}; // allocated by constructor
-int32_t currentNeuronSlot{-1};         // forces allocation to start @0. 
-int32_t neuronPoolCapacity{};          // filled in by constructor
-int32_t globalNextEvent{0};            // tracks the next event clock tick to process
+std::int32_t currentNeuronSlot{-1};         // forces allocation to start @0. 
+std::int32_t neuronPoolCapacity{};          // filled in by constructor
+std::int32_t globalNextEvent{0};            // tracks the next event clock tick to process
 
 // other pools
 extern std::vector<signal::Signal> m_srb;               // common signal ring buffer pool
 extern std::vector<connection::Connection> m_connPool;  // common connection pool
 
 // external globlals
-int32_t masterClock{0};
+std::int32_t masterClock{0};
 
-int32_t cascadeAccumulator {0};             // used to accumulate effective neuron signal.
-int32_t aggregationDistance{0};             // used to check signal time for aggregation.
-int32_t neuronBeingProcessed{0};            // easiest way to track neuronID (aka number)
-int32_t youngestSignal{0};                  // used for purging incoming signals
+std::int32_t cascadeAccumulator {0};             // used to accumulate effective neuron signal.
+std::int32_t aggregationDistance{0};             // used to check signal time for aggregation.
+std::int32_t neuronBeingProcessed{0};            // easiest way to track neuronID (aka number)
+std::int32_t youngestSignal{0};                  // used for purging incoming signals
 
 /** POP
     All neuron references exchanged with outside classes are done using
-    the neuron slot number - aka it's vector index number. This avoids any issues if neurons or the queue
+    the neuron slot number - aka it's vector element index number. This avoids any issues if neurons or the queue
     of neurons and signals are re-provisioned on the heap.
     Signals are pushed onto the neuron signalQueue in the order they arise, which
     is not related to the future clock time when they will become active.
     Thus, all tests for signal aggregation and next lowest event clock must scan
     the entire neuron signal queue. The was determined to be a much better performer
     than sorting the signal queue vector by future clock value every time a new
-    signal is added to the neuron's signal queue.
+    signal is added to the neuron's signal queue as sorting a vector involves multiple passes.
     Neuron keeps track of the oldest signal it has in queue as that's when it next needs
     to scan the incoming queue.
     Signals stay on the queue past their processing time until the aggregation decay
@@ -44,6 +44,11 @@ int32_t youngestSignal{0};                  // used for purging incoming signals
     handled by the processing routines in the Neurons class as it scans the neuron pool.
     The Neuron struct cannot afford the luxury of having any active components because of the memory
     that each pointer would take.
+    The Connections class generates the signals on behalf of neurons that cascade but scanning
+    the neuron's outGoingSignals vector where the definition for each connection for this neuron resides.
+    It is the Connection that determines the actionTime for the signal plus the size of the signal
+    to be created. Connections keep track of last signal time and the appropriate handling of STP and
+    LTP signal augmentation.
 
     CRUCIAL EFFICIENCY INSIGHT: Neurons do not need to react to signals being enqueued as they will 
     always be an event in the future. We scan all neurons and their signal queues at the current 
@@ -58,6 +63,43 @@ int32_t youngestSignal{0};                  // used for purging incoming signals
     time beyond the current clock tick.
     And the consequence of this ability to scan in parallel means that the network can be distributed across multiple
     cooperating computers, each with their own portion of the network, all working using the same clock time.
+
+    EVENTs & CLOCK TIMES: The masterClock starts a zero. Older signals have smaller clock times then younger signals. When
+    signals are enqueued on to a neuron they have an actionTime which represents the time when a signal is expected
+    to arrive at the neuron in the future. Although a neuron is refractory, it is legitimate to enqueue signals beyond the
+    refractory period as they will arrive in the future when the neuron is once again in a condition to process signals.
+    Signals are not processed when they are enqueued but they are processed when the masterClock gets to their action time.
+    The neuron and global nextEvent represents the clock time for the oldest signal that needs to be processed beyond any neuron's
+    refractory period.
+
+    NEURON & GLOBAL NEXT EVENT: This is among the trickiest of algorithms to get right, be efficient, and avoid
+    unnecessary scans of the neuron pool.
+    All neurons start with their nextEvent set to INT32_MAX, which means they will not process before the end of time.
+    When a signal is generated by a connection the signal actionTime is the  masterClock + temporalDistanceToTarget
+    as all Connection times are relative from the originator to the target. Upon signal generation the algorithm
+    is simple; set the neuron nextEvent to the lower of it's current value or the signal actionTime as computed.
+    The signal actionTime will always be greater than the masterClock and may or may not be before some prior
+    signal enqueued on the target neuron. Capturing the lowest neuron nextEvent is always done at signal generation
+    time and relies on the proto neurons starting out with their nextEvent set to MAX. 
+    Now signals are only created during the scan of the neurons looking for signals that are ready to be examined.
+    This means that the neuron scan alread set the globalNextEvnt to MAX ready to catch the next lowest neuron
+    nextEvent so signal creation can always compare and update the globlNextEvent as well as the target neuron
+    nextEvent even if the target neuron is prior to the neuron currently being processed. Changing the globlNextEvent
+    to a lower clock value will never take it backwards in time and will not affect the processing of the current
+    neuron pool scan.
+    When TCN starts the masterClock is set to zero (0) and a scan of all neurons is initiated. The globalNextEvent
+    is set to MAX at the start of neuron pool scan. At each neuron the test is made: is the neuron nextEvent the 
+    same as the masterClock? This must be the neuron nextEvent clock that is currently being processed. 
+    If not then is the neuron nextEvent less than the current globalNextEvent? If so then capture the lower neuron
+    nextEvent value. 
+    If the current neuron nextEvent is used to set the globalNextEvent then this neuron creates signals that are
+    even earlier it doesn't matter as the signal creation from the current neuron uses the connection signal 
+    generation which checks for any lower future signal actionTime values and updates the neuron nextEvent and the
+    globalNextEvent values, neither of which affect the current neuron being processed.
+    Their is an edge case when the neuron goes refractory. As this lasts longer than the agreggation window for
+    enqueued signal that neuron should purge its signal queue plus reset its nextEvent to max so the next signal
+    generated to that neuron will once again set the neuron nextEvent time. however this could lose enqueue events beyond 
+    the refractory period if there is not anothe signal delivered to this neuron.
 
     WHY WE DON'T SORT QUEUES: To do a sort always requires at least one, if not more passes through the queue 
     elements to complete the sort. If we do sort every time we add something to a queue of signals we would 
@@ -118,13 +160,14 @@ int32_t youngestSignal{0};                  // used for purging incoming signals
 namespace tconst = tcnconstants;
 namespace neurons
 {
-    class Neurons {
+    class Neurons 
+    {
 
         // create Connections & Neurons for reference so can can call public routines
         
         conns::Connections connObject;
         srb::SignalRingBuffer signalObject;
-        int32_t signalRequestor {};         // process requesting node for nextEvent
+        std::int32_t signalRequestor {};         // process requesting node for nextEvent
         /**
          * The Neurons class is responsible for creating the pool of neurons which
          * size is computed in the TCNConstants.h header.
@@ -137,10 +180,10 @@ namespace neurons
         //     static int * refractoryEndOrigin;
         //     static  int * necvOrigin;          // next event clock value from signal queue on Neuron
         //     static vector<int>::const_iterator int_citer;
-        //     static  int32_t signalClock;        // used to speed up signal scanning// make everything public for speed of access.
+        //     static  std::int32_t signalClock;        // used to speed up signal scanning// make everything public for speed of access.
         public:
 
-            Neurons(int32_t poolSize)
+            Neurons(std::int32_t poolSize)
             {
                 #ifdef TESTING_MODE
                 // just reserve 75 neurons for initial testing
@@ -176,8 +219,8 @@ namespace neurons
                 // std::vector<connection::Connection*> outgoingSignals;
                 // outgoingSignals.reserve(1);
 
-                std::vector<int32_t> incomingSignals;
-                std::vector<int32_t> outgoingSignals;
+                std::vector<std::int32_t> incomingSignals;
+                std::vector<std::int32_t> outgoingSignals;
 
                 incomingSignals.reserve(1);
                 outgoingSignals.reserve(1);
@@ -200,9 +243,9 @@ namespace neurons
                 // std::cout << "\nincoming[0] actionTime:= " << std::to_string(incomingSignals[0]->actionTime);
                 // std::cout << "\noutgoing[0] temporalDistance:= " << std::to_string(outgoingSignals[0]->temporalDistanceToTarget) << std::endl;
 
-                int32_t refractoryEnd = INT32_MAX;      // These neurons should never process
-                int32_t nextEvent = INT32_MAX;          // Ensure never yet seen signal clock
-                                                        // Always greater than any signal to be created or processed.
+                std::int32_t refractoryEnd = INT32_MAX;      // These neurons should never process
+                std::int32_t nextEvent = INT32_MAX;          // Ensure never yet seen signal clock
+                                                        // always greater than any signal to be created or processed.
 
                 // This shouldl populate the struct with the provided variables.
                 std::cout << "\nChange how empty neuron is initialized. \n";
@@ -272,7 +315,7 @@ namespace neurons
                 ; // allocated vector heap will be freed when they go out of scope.
             }
 
-            void printNeuronFromIndex(int32_t nidx)
+            void printNeuronFromIndex(std::int32_t nidx)
             {   
                 std::cout << "\nNeuron Index:= " << std::to_string(nidx);
                 std::cout << "\nincomingSignals size:= " << 
@@ -312,9 +355,9 @@ namespace neurons
                 // Have to keep track of the neuron slot being processed as there is
                 // no way for the range to let us know where we are
 
-                neuronBeingProcessed = -1;
+                std::int32_t  neuronBeingProcessed = -1;
 
-                // masterClock = globalNextEvent;       // Always the next clock tick when we are asked to scan neurons.
+                // masterClock = globalNextEvent;        // Always the next clock tick when we are asked to scan neurons.
                 globalNextEvent = INT32_MAX;             // This forces capture of some lower clock event
 
 
@@ -329,7 +372,8 @@ namespace neurons
                     //  Entries on the incomingSignals queue
                     //    Reasons to skip a neuron:
                     //    (incomingSignals isEmpty) OR 
-                    //    (incomingSignals length(1) AND firstSignal actionTime is INT32_MAX)
+                    //    (incomingSignals length(1) AND firstSignal actionTime is INT32_MAX) OR
+                    //    (neuron nextEvent > masterClock)
                     //
                     //  NOTE: This second reason means the neuron has never received a signal
                     //        and is still in its original allocation condition which would 
@@ -338,13 +382,32 @@ namespace neurons
                     //  First implementation will not bother with STP and LTP - just moving signals
                     //  and testing for cascading.
                     //  
+                    //  If a neuron gets scanned for actionable signals and aggregation, by definition
+                    //  the neuron's nextEvent must be equal to the current masterClock - otherwise it
+                    //  will wait for another pass to be processed.
 
                     //  track neuronId which is zero based and is vector slot number in m_neuronPool
 
                     ++neuronBeingProcessed;     // Only way to count slots during a forEach 
 
-                    if ( masterClock > nRef.refractoryEnd )
-                    // only process neurons when they have exited refractory
+                    // Check if the incomingSignals queue should be purged - which is a potentially 
+                    // a very expensive operation and must be optimized.
+
+                    
+                    
+                    // nRef.nextEvent = INT32_MAX;
+
+
+                    if ( masterClock > nRef.refractoryEnd  && nRef.nextEvent == masterClock)
+                    // Only process neurons signal queue when they have exited refractory
+                    // There is never anything to be done for a refractory neuron as all incoming
+                    // signals were purged when it went refracory and no new signals can enqueue 
+                    // while it is refractory. Future signals within the refractory period will not enqueue. 
+                    // Signals that are beyond the refractory period can still be enqueued as the have not
+                    // arrived.
+                    // If the neuron nextEvent isn't the current masterClock there is nothing to do.
+                    // Neurons only merit attention when there is a signal due to process at the current
+                    // masterClock time.
                     {                    
                         std::cout << "\nProcessing non-refractory neuron:= " << 
                             std::to_string(neuronBeingProcessed) << "\n";
@@ -354,16 +417,22 @@ namespace neurons
  
                         std::cout << "\nincomingSignals size:= " << std::to_string(nRef.incomingSignals.size());
                         std::cout << "\nactionTime:= " << std::to_string(m_srb[nRef.incomingSignals[0]].actionTime);
+
+                        //  The second test finds any neuron that has never received a signal and is still the way
+                        //  it was initialized.
                         if ( ((nRef.incomingSignals.empty()) ||
-                                ( m_srb[nRef.incomingSignals[0]].actionTime == INT32_MIN))  )
+                                (   nRef.incomingSignals.size() == 1 &&
+                                    m_srb[nRef.incomingSignals[0]].actionTime == INT32_MAX))  )
                         {
                             // Skip proto signals or empty incoming queues that got purged
                             std::cout << "\nSkip proto signal\n";   // skip the proto signal
+                            // At this point, if it's worth doing, we could reset the signal queue 
+                            // to empty using the swap trick.
                             ;
                         }
                         else
                         {
-                            // Step through the incoming signals and broadcast them
+                            // Step through aggregation signals and see if we cascade/
                             // Remember neuron vectors hold index to signal srb slot
                             // Always capture the current nextEvent for the neuron being processed
                             // Leave globalNextEvent alone if it's already lower i.e. older
@@ -372,7 +441,7 @@ namespace neurons
 
                             std::cout << "\nStart cascade accumulation....\n";
                             cascadeAccumulator = 0;
-                            for (int32_t sRef : nRef.incomingSignals)
+                            for (std::int32_t sRef : nRef.incomingSignals)
                             {
                                 // Just use the simple signal size for now - without  stp/ltp
                                 // We aggregate existing prior signals for aggretation window width
@@ -380,6 +449,9 @@ namespace neurons
 
                                 std::cout << "\nSignal action time: " << std::to_string(m_srb[sRef].actionTime);
 
+                                // At this point, as we step through all of the incoming signals, we should
+                                // be able to capture the next oldest signal beyond the current masterClock
+                                //
                                 // Only aggregate signals that are <= current master_clock and within the
                                 // aggregation window. 
                                 // Make sure we skip proto signals with INT_MIN action times.
@@ -390,7 +462,13 @@ namespace neurons
                                 // Processing note: all those that are at the same temporal distance inside
                                 // the aggregation window will all receive the same degradation.
                                 // Two signals @ -2 are as powerful as four signal @ -4
-                                if (m_srb[sRef].actionTime > INT32_MIN && m_srb[sRef].actionTime <= masterClock)
+                                // The test against INT32_MIN is to skip over proto signals
+                                // Ownership test is to guard against SRB wrap.
+
+                                if (m_srb[sRef].actionTime > INT32_MIN &&           // skip proto signals
+                                    m_srb[sRef].actionTime <= masterClock &&        // skip future signals
+                                    m_srb[sRef].actionTime > masterClock - 5 &&     // skip older than aggregation window
+                                    m_srb[sRef].owner == neuronBeingProcessed)      // skip signals we don't own
                                 {
                                     aggregationDistance = masterClock - m_srb[sRef].actionTime;
                                     std::cout << "\nAggregation distance:= " << std::to_string(aggregationDistance);
@@ -417,8 +495,33 @@ namespace neurons
                                 // neuron cascades and broadcasts it's own signal
                                 std::cout << "\nNeuron cascades with accumulator:= " << std::to_string(cascadeAccumulator);
                                 signalRequestor = connObject.generateOutGoingSignals(neuronBeingProcessed);
+
+                                // Now that neuron has cascaded and generated its signals it should be put
+                                // into refractory and have all of its signals purged.
+                                nRef.refractoryEnd = tconst::refractoryWidth + masterClock;
+
+                                // This is the right place to examine neurons for purging signals
+                                // After the neuron has processed, any signals up thru the aggregation window
+                                // will have been used.
+                                // There may still be future signals enqueued for later processing after refractory
+                                // and these should not be purged.
+
+                                // Purge old signals
+                                if (nRef.incomingSignals.size() > tconst::purgeThreshold)
+                                {
+                                    // Only make the call if there enough signals to bother with
+                                    purgeOldSignals(nRef);
+                                }
                             }
                         }
+                    }
+                    else  if (masterClock <= nRef.refractoryEnd)
+                    {           // this is the process for refractory neurons
+                        purgeOldSignals(nRef);
+                    }  
+                    else if (nRef.nextEvent == INT32_MAX)
+                    {   
+                        purgeOldSignals(nRef);  // check for old signals to purge
                     }
 
                     // Test to purge neuron signal after proceesing before we move on
@@ -427,87 +530,124 @@ namespace neurons
 
                     // This is another candidate to merge inline and avoid an expensive
                     // method call for every neuron processed. Again, done for speed.
-                   
-                    // Only purge if there is enough signals to bother with
-                    if (nRef.incomingSignals.size() > tconst::purgeThreshold)
+
+                    //     // ++neuronBeingProcessed; // step to next neuron slot
+                    //     // This is already incremented at the start of the for-loop
+
+                    // This is the end of processing for each neuron.
+                    // Now is the time to scan incomingSignals and update all neuron neuron nextEvent
+                    // nextEvent will only bt INT32_MAX if no new signals were enqueued.
+                    
+                    if (!(nRef.incomingSignals.empty()) && nRef.nextEvent == INT32_MAX)
                     {
-                        youngestSignal = 0;     // youngest is the signal wih the biggest clock value
-
-                        // for (int32_t i = 0; i < m_neuronPool[neuronBeingProcessed].incomingSignals.size(); ++i)
-                        for ( int32_t sigIdx : nRef.incomingSignals) // c++ forEach
+                        // We are only going to scan for nextEvent updates if needed
+                        for (std::int32_t sRef : nRef.incomingSignals)
                         {
-                            // Capture the largest clock value we can find on the incoming queue of the neuron
-                            youngestSignal = 
-                                (m_srb[sigIdx].actionTime > youngestSignal) ? 
-                                        m_srb[sigIdx].actionTime : youngestSignal;
-                        }
+                            // pick lower of current nextEvent or this signal's actionTime
+                            // Avoid updating neuron nextEvent where signal actionTime is less than
+                            // current masterClock. This edge case can occur when purge has left intact
+                            // old signals that might still be eligible for aggregation but are older
+                            // than the current masterClock.
 
-                        if (youngestSignal < (masterClock - aggregationDistance))
-                        {
-                            // no signals that can ever contribute to cascade - so purge all
-                            nRef.incomingSignals.clear();
+                            (nRef.nextEvent < m_srb[sRef].actionTime && 
+                                m_srb[sRef].actionTime > masterClock) ?
+                                    nRef.nextEvent :    // Leave it alone
+                                        nRef.nextEvent = m_srb[sRef].actionTime;
                         }
-                    }       // End of purge incoming signals scan
-
-                    // ++neuronBeingProcessed; // step to next neuron slot
-                    // This is already incremented at the start of the for-loop
-                }
+                    }
+                }   // end of neuron forEach loop
                 
                 std::cout << "\nLast Neuron processed:= " << std::to_string(neuronBeingProcessed) << std::endl;
                 std::cout << "End of neuron scan \n";
 
-                // This is the end of the forEach range scan of neuron pool.
-                // Now is the time to rescan and update all neuronEvents
 
- 
 
-                
+      
             }
 
-            void purgeOldSignals (int32_t neuronBeingProcessed)
+            void purgeOldSignals (neuron::Neuron nRef)
+            {
 
             /**
              * @brief   Purge old signals by dropping their reference from the incomingSignals vector. 
              * They are just dropped and left in the SRB to be reused by someone else.
              * 
              * @details Purging is a relatively expensive operation as the vector is shifted potentially
-             * multiple times. We only purge if the number of stale signals > purgeThreshold but are careful
-             * to leave in queue any signals that might contribute to aggregate window.
+             * multiple times. We only purge if the number of signals > purgeThreshold but are careful
+             * to leave in queue any future signals.
              * The only reason to purge is if the incomingSignal queue gets bloated with old signals. When the 
              * SRB (SignalRingBuffer) wraps, unpurged signals will have the old signal information in them inluding the owner. 
              * It's important that when neurons process the incomingSignal queue they make sure they are the owner
              * of the signal as really old signals that didn't get purged might have been reused after an SRB wrap.
              * 
-             * @cond When to purge? If the incomingSignal vector get's larger than the purgeThreshold and the 
-             * signals are older than (now - aggretationThreshold) - which is the maximum time aggregation of an
-             * incoming signal can reach back in time to combine signals.
+             * When we purge a neuron during refractory we can purge all signals up to and including the refractory end,
+             * including any that would normally fall into the aggregation window as they should never become enqueued or,
+             * if they were in the past, they will be unusable while the neuron is refractory. This means the purge
+             * routine does not have to reach back to preserve aggregation window signals.
+             * 
+             * @cond When to purge? If the incomingSignal vector get's larger than the purgeThreshold otherwise
+             * just let them lay there for now.
              * The only reason to purge is to save memory in the incomingSignals ref queue. SRB ownership and SRB
              * wrap takes care of reusing the actual signals and neuron signal processing ignores and potentially
              * purges older signals. Otherwise, old signal refs just stay fallow in their respective neuron
-             * incomingSignal queues - and they are just refs, not the actual signals themselves, which remain in 
+             * incomingSignal queues - and they are just indexes not the actual signals themselves, which remain in 
              * the SRB. 
              * 
-             * Efficient algorithm: Check for any signals that are still in the aggregation window.
-             * If there are none then clear the vector - the quickest cheapest way to purge signals.
+             * Efficient algorithm: We purge when we are in refractory. Any signals older than current masterClock
+             * can be dropped, even those that contributed to the current aggregation.
+             * As the incomingSignals vector is not sorted there could be earlier signals enqueued with
+             * an actionTime beyond the masterClock so they have to be left intact.
+             * There is another simple test that can be made when every neuron is examined in the scan. If the
+             * neuron nextEvent is less than the masterClock then the time has passed for this neuron to cascade so
+             * we can drop all of the old signals in the incomingSignals queue as they will never again contribute to
+             * a clock time thas has passed.
+             * This immediate purge can be done in-line.
              */
-            {
-                if (m_neuronPool[neuronBeingProcessed].incomingSignals.size() > tconst::purgeThreshold)
-                {
-                    youngestSignal = 0;
-                    for (int32_t i = 0; i<m_neuronPool[neuronBeingProcessed].incomingSignals.size(); ++i)
-                    {
-                        (m_srb[m_neuronPool[neuronBeingProcessed].incomingSignals[i]].actionTime > youngestSignal) ? 
-                            m_srb[m_neuronPool[neuronBeingProcessed].incomingSignals[i]].actionTime : youngestSignal;
-                    }
+            
+             // Callers should make purge threshold test to avoid unnecessary calls
 
-                    if (youngestSignal > (masterClock - aggregationDistance))
-                    {
-                        // no signals that can ever contribute to cascade - so purge all
-                        m_neuronPool[neuronBeingProcessed].incomingSignals.clear();
-                        // **** But reinstate incomingSignals[] to point to srb[0] 
-                        // So that subsequent pushes always leave incoming[0] pointing to proto signal
-                        m_neuronPool[neuronBeingProcessed].incomingSignals.push_back(0);
-                    }
+                std::int32_t oldestSignal = 0;
+
+
+                // Start with the simplest test:
+                if (nRef.nextEvent == INT32_MAX)
+                {
+                    // This means there are no future signals that have been found so we can purge all
+                    std::vector<std::int32_t>().swap(nRef.incomingSignals);
+                    return;     // early out
+                }
+
+                // Use c++ forEach for cleaner code
+                // oldestSignal mean smallest clock time
+
+                for (std::int32_t sRef : nRef.incomingSignals)
+                {
+                    oldestSignal = (m_srb[sRef].actionTime < oldestSignal &&
+                                      m_srb[sRef].actionTime > masterClock) ?
+                                        m_srb[sRef].actionTime :
+                                            oldestSignal;
+                }
+
+                // Upon exit oldestSignal should have the smallest future clock value from incoming signals
+                // that is bigger than the current masterClock
+                if (oldestSignal < (masterClock - aggregationDistance))
+                {
+                    // no signals that can ever contribute to cascade within the next clock tick - so purge all
+                    // m_neuronPool[neuronBeingProcessed].incomingSignals.clear();
+                    // Clear does no reduce capacity; use the swap trick
+
+                    std::vector<std::int32_t>().swap(nRef.incomingSignals);
+
+                    // **** But reinstate incomingSignals[] to point to srb[0] 
+                    // So that subsequent pushes always leave incoming[0] pointing to proto signal
+                    m_neuronPool[neuronBeingProcessed].incomingSignals.push_back(0);
+                }
+                else
+                {
+                    // oldest signal we found in signals is older then current neuron nextEvent
+                    nRef.nextEvent = (nRef.nextEvent < oldestSignal) ?
+                                        nRef.nextEvent : 
+                                            oldestSignal;
                 }
             }
         

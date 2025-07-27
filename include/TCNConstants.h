@@ -103,6 +103,7 @@ namespace tcnconstants
     inline constexpr int32_t aggregatorWidth{2};     // period when signals must arrive to be counted
     inline constexpr int32_t refractoryWidth{5};     // refractory period width
     inline constexpr int32_t purgeThreshold{10};     // don't purge signals below purgeThreshold - perf.
+    inline constexpr int32_t stalePurgeThreshold{25}; // used undertake a purge for active neuron stale signals
 
     inline constexpr int16_t cascadeThreshold{12000}; // value to cause neuron to cascade aka 12 mv.
     inline constexpr int32_t msecs_refractory_period{5};     // 5 msecs; 1 spike + 4 recovery

@@ -93,7 +93,7 @@ namespace conns
         // static short   *ltp_accumulator_origin;        //ltp accumulated level
         // static int     *last_signal_clock_origin;      //used to determine how much STP & LTP decay has occurred
         // static int      next_connection_slot;          // used to allocate connections slots during
-        int32_t nextSignalSlot;             // not a member variable
+        int32_t nextSignalSlot;             
         
         // during building for the network
         // The signal size will be modified by STP and LTP and any other memory and enhancement actions
@@ -224,7 +224,8 @@ namespace conns
                         m_neuronPool[neuronId].refractoryEnd )      
                         {
                             // only generate a signal if connection real clock is beyond refractory end
-                            // otherwise no point in generating a signal
+                            // otherwise no point in generating a signal.
+                            // These are future post-refractory signals have not yet arrived.
 
                             signalEventTime = generateASignal(connIdx); // receive signal event time back
 
@@ -340,15 +341,6 @@ namespace conns
 
                 // And now check globalNextEvent
                 (globalNextEvent < sigRef.actionTime + masterClock) ? globalNextEvent : sigRef.actionTime + masterClock;
-
-                // This is already done by generateSignals every time it calls generateASignal
-
-                // m_neuronPool[m_connPool[connIdx].targetNeuronSlot].nextEvent =
-                //     (m_neuronPool[m_connPool[connIdx].targetNeuronSlot].nextEvent < m_srb[nextSignalSlot].actionTime) ?
-                //      m_neuronPool[m_connPool[connIdx].targetNeuronSlot].nextEvent : // don't change nextEvent if lower
-                //      m_srb[nextSignalSlot].actionTime;                              // update nextEvent
-
-                // We could also test and update globalNextEvent at this point if we wanted.
 
                 std::cout << "\nPrint incoming signals for targetNode:= " << std::to_string(m_connPool[connIdx].targetNeuronSlot);
 
