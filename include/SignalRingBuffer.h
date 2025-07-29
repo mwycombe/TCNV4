@@ -59,9 +59,10 @@ std::vector<signal::Signal> m_srb{};       // this remains a vector of the actua
             // init m_srb with empty signals to allocate heap
             // regardless of size
             // create an empty signal with impossible clock value -ve always less then masterClock which starts @0
+            // create impossible sourceConnId - new for STP/LTP group strengthening
             // impossible owner too...
 
-            signal::Signal emptySignal{ INT32_MIN,INT32_MIN,1000,0}; // default values 
+            signal::Signal emptySignal{ INT32_MIN,INT32_MIN,INT32_MIN, 1000,0}; // default values 
 
             for (int i = 0; i < m_srb.capacity(); ++i) {
                 #ifdef TESTING_MODE

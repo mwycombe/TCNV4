@@ -496,8 +496,25 @@ namespace neurons
                                 std::cout << "\nNeuron cascades with accumulator:= " << std::to_string(cascadeAccumulator);
                                 signalRequestor = connObject.generateOutGoingSignals(neuronBeingProcessed);
 
+                                // July 2025 New STP/LTP group strengthening requirement:
+                                // For all the signals that could have contributed to this cascade,
+                                // loop through the signal sourceConnIds and apply STP/LTP rules to each
+                                // The contributing signals will be any signal that contributes to the cascade; 
                                 // Now that neuron has cascaded and generated its signals it should be put
                                 // into refractory and have all of its signals purged.
+
+                                // Have to determine, again, which incomingSignals contributed to the cascade
+                                // to get their sourceConnId.
+
+                                for (std::int32_t  sIdx : nRef.incomingSignals)
+                                {
+                                   if (m_srb[sIdx].actionTime <= masterClock &&
+                                      m_srb[sIdx].actionTime > masterClock - 5)
+                                     {   // strengthen the connections that caused the cascade
+                                         connObject.strengthen(m_srb[sIdx].sourceConnId);
+                                     }
+                                }
+                                     
                                 nRef.refractoryEnd = tconst::refractoryWidth + masterClock;
 
                                 // This is the right place to examine neurons for purging signals

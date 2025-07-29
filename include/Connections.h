@@ -281,7 +281,9 @@ namespace conns
                 * We should also update the nextEvent time for the targetNeuron if the new signal is less
                 * than the current nextEvent time. If this is the first signal this will work as the 
                 * default nextEvent time is INT32_MAX.
-                * And the adjust globalNextEvent if necesary. 
+                * And the adjust globalNextEvent if necesary.
+                * 
+                * July 2025:    Add new sourceConnId to signal for group STP/LTP processing 
                 * 
                 * @return event time of signal generated for nextEvent tracking
                 * 
@@ -305,8 +307,9 @@ namespace conns
                 // fill in the signal values before enqueueing to the target
                 m_srb[nextSignalSlot].actionTime = masterClock + m_connPool[connIdx].temporalDistanceToTarget;   // relative distance
                 m_srb[nextSignalSlot].amplitude = m_connPool[connIdx].stpWeight + m_connPool[connIdx].ltpWeight;  // moderated amplitudes
-                m_srb[nextSignalSlot].owner = m_connPool[connIdx].targetNeuronSlot;                // target is the signal owner
-                
+                m_srb[nextSignalSlot].owner = m_connPool[connIdx].targetNeuronSlot;     // target is the signal owner
+                m_srb[nextSignalSlot].sourceConnId = connIdx;   // source is the generating connnection
+
                 // Update the last signal time for this connection - used for stp/ltp aging.
                 // No comparison needed as any prior signals would have been older
                 m_connPool[connIdx].lastSignalOriginTime = masterClock;
@@ -352,6 +355,19 @@ namespace conns
                 
                 
                 return m_srb[nextSignalSlot].actionTime;    // this is the time for this signal event
+            }
+
+            void strengthen (std::int32_t connId)
+            /**
+             * @brief:  Called by cascading neuron for group strenthening
+             * 
+             * @details:generateASignal adds to signal the sourceId of the connection that raised the signal.
+             *          This is to support strenthening of a group of connections that contribute to a 
+             *          neuron cascade and will be used in the future to support learning.
+             */
+            {
+                // do nothing for now
+                ;
             }
 
             /**
