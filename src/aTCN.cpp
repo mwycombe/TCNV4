@@ -18,7 +18,6 @@ using namespace tcnconstants;
 
 aTCN::aTCN(int tcnet=0)
 {
-    c() {
 
     // ctor
     // allocate all of the required neurons, connections, and signals
@@ -32,9 +31,9 @@ aTCN::aTCN(int tcnet=0)
     // build the initial neuron temporal connection network
     buildConnectionNetwork(LVIT_net, LV4_net, LV2_net, LV1_net);
     process(neurons, connections, srb, tcnet);
-    }
+}
 
- }
+ 
  aTCN::~aTCN()
  {
      // this destructor will clean up when all is done
