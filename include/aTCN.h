@@ -1,10 +1,11 @@
 #ifndef ATCN_H
 #define ATCN_H
 #include <climits>
+#include <cstddef>
 
 #include "Neurons.h"
 #include "SixPack.h"
-#include "Tcnconstants.h"
+#include "TCNConstants.h"
 #include "LVIT.h"
 #include "LV4.h"
 #include "LV2.h"
@@ -127,7 +128,7 @@ namespace tcn
         void buildForwardVerticalInterconnect(LVIT *, LV4 *, LV2 *, LV1 *, float, float);
         void buildBackwardVerticalInterconnect(LVIT *, LV4 *, LV2 *, LV1 *, float, float);
         void buildHorizontalInterconnect(LVIT *, LV4 *, LV2 *, LV1 *, float, float);
-        void procees(Neurons, Connections, SignalRingBuffer, int);
+        void process(Neurons, Connections, SignalRingBuffer, int);
 
         ~aTCN();
 

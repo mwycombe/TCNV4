@@ -48,7 +48,7 @@ namespace tcnconstants
     // the following are guesstimates for the size of the TCN
     inline constexpr int32_t neuron_signal_ratio{10};                                  // average count of signals/neuron
     inline constexpr int32_t signal_count{neuron_count * neuron_signal_ratio};         // average of 10 per neuron
-    inline constexpr int32_t neuron_connection_ratio{30};                              // average count of connections per neuron
+    inline constexpr int32_t neuron_connection_ratio{50};                              // average count of connections per neuron
     inline constexpr int32_t connection_count{neuron_count * neuron_connection_ratio}; // thirty connections per neuron
 
     // density and inhibition ratios
@@ -63,26 +63,7 @@ namespace tcnconstants
     inline constexpr float V1_inhibition_ratio{0.4};
     inline constexpr float L6_inhibition_ratio{0.4};
 
-    // What is this used for?
-    // enum tcnLabel
-    // {
-    //     tcn_IT,
-    //     tcn_V4,
-    //     tcn_V2,
-    //     tcn_V1,
-    //     sp_L1_w,
-    //     sp_L1_d,
-    //     sp_Lx_w,
-    //     sp_Lx_d,
-    //     sp_size,
-    //     tcn_neurons,
-    //     tcn_sig_ratio,
-    //     tcn_signals,
-    //     tcn_conn_ratio,
-    //     tcn_connections,
-    //     tcn_max
-    // };
-
+    
     /**
      * July 2025
      * Need to revalidate these parameters, especially the aggregation aging period.
@@ -103,7 +84,7 @@ namespace tcnconstants
     inline constexpr int32_t aggregatorWidth{2};     // period when signals must arrive to be counted
     inline constexpr int32_t refractoryWidth{5};     // refractory period width
     inline constexpr int32_t purgeThreshold{10};     // don't purge signals below purgeThreshold - perf.
-    inline constexpr int32_t stalePurgeThreshold{25}; // used undertake a purge for active neuron stale signals
+    inline constexpr int32_t stalePurgeThreshold{25}; // used to undertake a purge for active neuron stale signals
 
     inline constexpr int16_t cascadeThreshold{12000}; // value to cause neuron to cascade aka 12 mv.
     inline constexpr int32_t msecs_refractory_period{5};     // 5 msecs; 1 spike + 4 recovery
@@ -111,6 +92,19 @@ namespace tcnconstants
     inline constexpr int32_t aggregation_decay_factor{2};   // 1/32 after 5 msecs
     inline constexpr int32_t ticks_per_msec{1};     // millisec clock rate
                                                     // all msec measurements will use this scaling factor
+    inline constexpr int32_t micro_col_size{5};     // size of neuron microcolums in sixpacks
+    inline constexpr int32_t col_size{49};          // size of column array in sixpack layers
+    inline constexpr int32_t layer_count{100};      // number of layers in a sixpack
+    inline constexpr int32_t it_layer_count{1};     // layers in IT layer
+    inline constexpr int32_t v4_layer_count{5};     // layers in V4 layer
+    inline constexpr int32_t v2_layer_count{25};    // layers in V2 layer
+    inline constexpr int32_t v1_layer_count{125};   // layers in V1 layer
+    inline constexpr int32_t v_layer_total{it_layer_count + v4_layer_count +
+                                            v2_layer_count + v1_layer_count};
+    inline constexpr int32_t micro_capacity {micro_col_size * micro_col_size};
+    inline constexpr int32_t column_capacity {col_size * micro_capacity};
+    inline constexpr int32_t layer_capacity {column_capacity * layer_count};
+                                       
 
     /*
     [ STP section ]
