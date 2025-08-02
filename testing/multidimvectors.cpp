@@ -5,7 +5,7 @@
 
 #include "TCNConstants.h"
 
-extern int32_t  micro_capacity;
+namespace tconst = tcnconstants;
 
 int main ()
 {
@@ -18,15 +18,28 @@ int main ()
    */
   std::vector<std::vector<std::vector<std::vector<int32_t>>>> ITLayer;
 
+  int32_t IT_capacity{};
+  int32_t layers_capacity{};
+  int32_t columns_capacity{};
+  int32_t micros_capacity{};
   // vector order: IT < Levels < Columns < Microcolumns
   // We size from the right...
-  ITLayer.reserve(25);
-  for (int i = 0; i< ITLayer.capacity() ; i++ )
+  ITLayer.reserve(1);
+  std::cout << "ITLayer capacity:= " << std::to_string(ITLayer.capacity()) << "\n";
+  for (auto& layers : ITLayer)
   {
-    ITLayer[i].reserve(micro_capacity);
-  }
+    layers.reserve(tconst::layer_count);
+    for(auto&  columns : layers)
+    {
+      columns.reserve(tconst::column_capacity);
+      for (auto&  micros : columns)
+      {
+        micros.reserve(tconst::micro_capacity);
+      }
+    }
 
 
+  } 
 
 
 
